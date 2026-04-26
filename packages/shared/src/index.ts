@@ -10,6 +10,43 @@ export type TerritorySummary = {
   createdAtLabel: string;
 };
 
+export type DailyActivityStatus = "open" | "finalized" | "paused";
+
+export type LiveTerritoryStats = {
+  elapsed: string;
+  distanceKm: number;
+  previewAreaKm2: number;
+  lastSyncedAt?: string;
+};
+
+export type DailyActivity = {
+  id: string;
+  localDate: string;
+  timezone: string;
+  status: DailyActivityStatus;
+  stats: LiveTerritoryStats;
+};
+
+export type LocationPointInput = {
+  dailyActivityId: string;
+  latitude: number;
+  longitude: number;
+  accuracyM: number;
+  speedMps?: number;
+  recordedAt: string;
+};
+
+export type LiveTerritoryResult = {
+  dailyActivity: DailyActivity;
+  territory: TerritorySummary;
+  stats: LiveTerritoryStats;
+};
+
+export type FinalizedDailyActivity = {
+  dailyActivity: DailyActivity;
+  territory: TerritorySummary;
+};
+
 export type GeoPoint = {
   latitude: number;
   longitude: number;
@@ -50,10 +87,5 @@ export type UserProfile = {
   notificationsEnabled: boolean;
   backgroundTrackingEnabled: boolean;
   locationSharingEnabled: boolean;
-};
-
-export type TrackingStats = {
-  elapsed: string;
-  distanceKm: number;
-  previewAreaKm2: number;
+  territoryCaptureEnabled: boolean;
 };

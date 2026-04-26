@@ -1,32 +1,32 @@
 import type {
+  DailyActivity,
+  FinalizedDailyActivity,
   FriendPresence,
+  LiveTerritoryResult,
+  LocationPointInput,
   RankingEntry,
   TerritoryColor,
   TerritorySummary,
-  TrackingStats,
   UserProfile
 } from "@terri/shared";
 
-export type StartActivityResult = {
-  activityId: string;
-  initialStats: TrackingStats;
-};
-
-export type CompleteActivityResult = {
-  territory: TerritorySummary;
-  stats: TrackingStats;
+export type EnsureDailyActivityInput = {
+  localDate: string;
+  timezone: string;
 };
 
 export interface TerriRepository {
   getProfile(): Promise<UserProfile>;
-  updateProfile(input: Partial<Pick<UserProfile, "notificationsEnabled" | "backgroundTrackingEnabled" | "locationSharingEnabled">>): Promise<UserProfile>;
+  updateProfile(input: Partial<Pick<UserProfile, "notificationsEnabled" | "backgroundTrackingEnabled" | "locationSharingEnabled" | "territoryCaptureEnabled">>): Promise<UserProfile>;
   updateTerritoryColor(color: TerritoryColor): Promise<UserProfile>;
   getFriends(): Promise<FriendPresence[]>;
   getRankings(): Promise<RankingEntry[]>;
   getActivities(): Promise<TerritorySummary[]>;
   getActivity(activityId: string): Promise<TerritorySummary>;
-  startActivity(): Promise<StartActivityResult>;
-  completeActivity(activityId: string): Promise<CompleteActivityResult>;
+  ensureDailyActivity(input: EnsureDailyActivityInput): Promise<DailyActivity>;
+  appendLocationPoint(input: LocationPointInput): Promise<void>;
+  syncLiveTerritory(dailyActivityId: string): Promise<LiveTerritoryResult>;
+  finalizeDailyActivity(dailyActivityId: string): Promise<FinalizedDailyActivity>;
 }
 
 export class RepositoryError extends Error {
