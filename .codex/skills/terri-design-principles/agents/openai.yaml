@@ -1,0 +1,4 @@
+interface:
+  display_name: "TERRI デザイン思想"
+  short_description: "TERRIの画面設計とUX品質基準"
+  default_prompt: "$terri-design-principles を使ってTERRIの画面設計やUIレビューを行う。"

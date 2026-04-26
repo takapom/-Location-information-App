@@ -1,0 +1,14 @@
+.DS_Store
+node_modules/
+apps/*/node_modules/
+.expo/
+apps/*/.expo/
+.serena/
+dist/
+coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.env
+.env.*
+!.env.example

@@ -1,0 +1,4 @@
+interface:
+  display_name: "TERRI テスト契約"
+  short_description: "TERRI機能ごとの必須テスト基準"
+  default_prompt: "$terri-test-contracts を使ってTERRIの変更に必要なテストを決めて実装する。"

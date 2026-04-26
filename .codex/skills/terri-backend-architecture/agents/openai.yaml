@@ -1,0 +1,4 @@
+interface:
+  display_name: "TERRI バックエンド設計"
+  short_description: "Supabase/PostGIS中心の設計基準"
+  default_prompt: "$terri-backend-architecture を使ってTERRIのバックエンド機能を実装する。"

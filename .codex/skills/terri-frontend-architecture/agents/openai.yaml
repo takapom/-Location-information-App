@@ -1,0 +1,4 @@
+interface:
+  display_name: "TERRI フロントエンド設計"
+  short_description: "TERRIモバイルの実装境界と構造"
+  default_prompt: "$terri-frontend-architecture を使ってTERRIのフロントエンド機能を実装する。"
