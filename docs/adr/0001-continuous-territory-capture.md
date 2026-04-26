@@ -154,7 +154,35 @@ finalize-daily-activity
 - Test:
   - live territory state reducer testを追加した。
   - mock repository contract testを日次Activity契約へ更新した。
+  - Supabase SQL contract testで、finalize冪等性、GPS除外条件、RLS append制御を静的に検証した。
   - 既存のmap/friends/activity metric testは継続した。
+
+## ネクストアクション
+
+1. ローカルSupabaseを起動し、migration適用、RLS、RPC、Edge Functionの実DB検証を行う。
+   - `supabase db lint --local` はローカルDB未起動のため未完了。
+   - ownerのみが `sync-live-territory` / `finalize-daily-activity` を呼べることを確認する。
+   - finalized後の通常append拒否、finalize再試行成功、`accuracy_m >= 50` 除外をDB上で確認する。
+
+2. `apps/mobile` に実GPS取得と送信ワークフローを追加する。
+   - foregroundで5秒または10m移動ごとに `appendLocationPoint` へ送る。
+   - テリトリー生成OFF、位置情報権限拒否、background制限時はGPS点を永続化しない。
+   - 低速30秒以上では送信間隔を30秒へ落とす。
+
+3. Supabase repository実装を追加する。
+   - `createSupabaseTerriRepository` を `TerriRepository` 契約に沿って実装する。
+   - 画面は引き続きrepository interfaceだけに依存し、Supabase clientを直接importしない。
+   - mock repository contract testを、Supabase repositoryにも流用できる形へ寄せる。
+
+4. PostGIS territory生成を段階的に強化する。
+   - 現在の `live-buffer-v1-basic` / `final-buffer-v1-basic` は簡易buffer実装として扱う。
+   - 20点以上かつ開始点500m以内に戻ったrouteで内側面積を加える。
+   - 異常速度、重複点、ジャンプ除外の閾値を実測に基づいて調整する。
+
+5. 日次境界とbackground運用を決める。
+   - timezone変更時に既存daily activityをどう扱うかを次ADRで決定する。
+   - 日付変更時のfinalize起動条件を、アプリ復帰、定期同期、Edge Functionのいずれに寄せるか決める。
+   - background trackingをPhase 1に含めるかを、電池消費と審査リスク込みで判断する。
 
 ## 備考
 
