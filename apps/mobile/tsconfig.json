@@ -1,0 +1,25 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "src/*"
+      ],
+      "@terri/shared": [
+        "../../packages/shared/src"
+      ],
+      "@terri/shared/*": [
+        "../../packages/shared/src/*"
+      ]
+    }
+  },
+  "include": [
+    "app",
+    "src",
+    "jest.setup.ts",
+    "../../packages/shared/src",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ]
+}
