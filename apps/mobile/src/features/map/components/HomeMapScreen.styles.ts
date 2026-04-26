@@ -26,6 +26,21 @@ export const styles = StyleSheet.create({
     paddingVertical: 12,
     ...shadow
   },
+  liveErrorBanner: {
+    position: "absolute",
+    left: 24,
+    right: 24,
+    top: 142,
+    minHeight: 42,
+    borderRadius: 21,
+    backgroundColor: colors.surface,
+    color: colors.coral,
+    fontSize: 14,
+    fontWeight: font.heavy,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    ...shadow
+  },
   startDock: {
     position: "absolute",
     left: 44,
@@ -71,6 +86,12 @@ export const styles = StyleSheet.create({
     left: 24,
     right: 24,
     bottom: 54
+  },
+  livePanel: {
+    position: "absolute",
+    left: 24,
+    right: 24,
+    bottom: 154
   },
   statsCard: {
     height: 112,
@@ -138,6 +159,22 @@ export const styles = StyleSheet.create({
   },
   stopText: {
     fontSize: 26,
+    color: colors.surface,
+    fontWeight: font.heavy
+  },
+  syncButton: {
+    alignSelf: "center",
+    marginTop: 14,
+    minWidth: 156,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: colors.ink,
+    alignItems: "center",
+    justifyContent: "center",
+    ...shadow
+  },
+  syncText: {
+    fontSize: 18,
     color: colors.surface,
     fontWeight: font.heavy
   },

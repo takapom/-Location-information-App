@@ -54,10 +54,10 @@ describe("MapSurface", () => {
     expect(output).toContain("1 人が今アクティブ 🔥");
   });
 
-  test("tracking中はREC LIVE表示へ切り替わる", () => {
+  test("LIVE中はREC LIVE表示へ切り替わる", () => {
     let tree: renderer.ReactTestRenderer | undefined;
     act(() => {
-      tree = renderer.create(<MapSurface friends={friends} tracking showRoute />);
+      tree = renderer.create(<MapSurface friends={friends} live showRoute />);
     });
 
     expect(JSON.stringify(tree?.toJSON())).toContain("REC ● LIVE");

@@ -12,7 +12,7 @@ type LeafletLayerGroup = import("leaflet").LayerGroup;
 type MapLayerGroups = {
   base: LeafletLayerGroup;
   friends: LeafletLayerGroup;
-  tracking: LeafletLayerGroup;
+  live: LeafletLayerGroup;
 };
 
 const leafletCssId = "terri-leaflet-css";
@@ -20,12 +20,12 @@ const leafletCssId = "terri-leaflet-css";
 export const MapSurface = memo(function MapSurface({
   friends = [],
   activeFriendCount = 0,
-  tracking = false,
+  live = false,
   showRoute = false
 }: {
   friends?: MapFriendMarker[];
   activeFriendCount?: number;
-  tracking?: boolean;
+  live?: boolean;
   showRoute?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -68,7 +68,7 @@ export const MapSurface = memo(function MapSurface({
       const groups = {
         base: L.layerGroup().addTo(map),
         friends: L.layerGroup().addTo(map),
-        tracking: L.layerGroup().addTo(map)
+        live: L.layerGroup().addTo(map)
       };
 
       leafletRef.current = L;
@@ -77,7 +77,7 @@ export const MapSurface = memo(function MapSurface({
 
       renderBaseLayers(L, groups.base);
       renderFriendLayers(L, groups.friends, friends);
-      renderTrackingLayers(L, groups.tracking, tracking, showRoute);
+      renderLiveLayers(L, groups.live, live, showRoute);
       requestAnimationFrame(() => map.invalidateSize());
     }
 
@@ -101,14 +101,14 @@ export const MapSurface = memo(function MapSurface({
 
   useEffect(() => {
     if (!leafletRef.current || !groupsRef.current) return;
-    renderTrackingLayers(leafletRef.current, groupsRef.current.tracking, tracking, showRoute);
-  }, [tracking, showRoute]);
+    renderLiveLayers(leafletRef.current, groupsRef.current.live, live, showRoute);
+  }, [live, showRoute]);
 
   return (
     <div style={styles.shell} data-testid="map-surface">
       <div ref={containerRef} style={styles.map} aria-label="TERRI interactive map" />
       <div style={styles.place}>Shibuya</div>
-      <div style={styles.activePill}>{tracking ? "REC ● LIVE" : `${activeFriendCount} 人が今アクティブ 🔥`}</div>
+      <div style={styles.activePill}>{live ? "REC ● LIVE" : `${activeFriendCount} 人が今アクティブ 🔥`}</div>
     </div>
   );
 });
@@ -134,10 +134,10 @@ function renderBaseLayers(L: LeafletModule, group: LeafletLayerGroup) {
   );
 }
 
-function renderTrackingLayers(L: LeafletModule, group: LeafletLayerGroup, tracking: boolean, showRoute: boolean) {
+function renderLiveLayers(L: LeafletModule, group: LeafletLayerGroup, live: boolean, showRoute: boolean) {
   group.clearLayers();
   const polygons = buildTerritoryPolygons();
-  if (tracking) {
+  if (live) {
     group.addLayer(
       L.polygon(polygons.preview, {
         color: colors.coral,

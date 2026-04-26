@@ -58,6 +58,7 @@ export function ProfileScreen() {
         <Text style={styles.sectionTitle}>Settings</Text>
         <Setting label="🔔 通知" value={profile.notificationsEnabled} onChange={(value) => updateSetting({ notificationsEnabled: value })} />
         <Setting label="📍 バックグラウンド" value={profile.backgroundTrackingEnabled} onChange={(value) => updateSetting({ backgroundTrackingEnabled: value })} />
+        <Setting label="テリトリー生成" value={profile.territoryCaptureEnabled} onChange={(value) => updateSetting({ territoryCaptureEnabled: value })} />
         <Setting label="現在地共有" value={profile.locationSharingEnabled} onChange={(value) => updateSetting({ locationSharingEnabled: value })} />
       </View>
       <View style={styles.section}>

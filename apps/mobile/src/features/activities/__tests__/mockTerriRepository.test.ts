@@ -3,21 +3,127 @@ import { createMockTerriRepository } from "@/lib/repositories/mockTerriRepositor
 import { RepositoryError } from "@/lib/repositories/terriRepository";
 
 describe("mockTerriRepository", () => {
-  test("Supabase差し替え前提のActivity契約で開始と完了を返す", async () => {
+  test("Supabase差し替え前提の日次Activity契約でensureとsyncを返す", async () => {
     const repository = createMockTerriRepository();
-    const started = await repository.startActivity();
-    const completed = await repository.completeActivity(started.activityId);
+    const dailyActivity = await repository.ensureDailyActivity({ localDate: "2026-04-26", timezone: "Asia/Tokyo" });
+    const synced = await repository.syncLiveTerritory(dailyActivity.id);
 
-    expect(started.activityId).toBeTruthy();
-    expect(completed.territory.areaKm2).toBeGreaterThan(0);
-    expect(completed.stats.distanceKm).toBeGreaterThan(0);
+    expect(dailyActivity.id).toBe("daily-2026-04-26");
+    expect(synced.territory.areaKm2).toBe(0);
+    expect(synced.stats.distanceKm).toBe(0);
   });
 
-  test("activityIdが空ならnot-foundとして正規化したエラーを返す", async () => {
+  test("存在しないdailyActivityIdならnot-foundとして正規化したエラーを返す", async () => {
     const repository = createMockTerriRepository();
 
-    await expect(repository.completeActivity("")).rejects.toEqual(
-      new RepositoryError("アクティビティが見つかりません", "not-found")
+    await expect(repository.syncLiveTerritory("missing")).rejects.toEqual(
+      new RepositoryError("日次アクティビティが見つかりません", "not-found")
+    );
+  });
+
+  test("同じlocalDateのensureDailyActivityは冪等に同じ日次Activityを返す", async () => {
+    const repository = createMockTerriRepository();
+    const first = await repository.ensureDailyActivity({ localDate: "2026-04-26", timezone: "Asia/Tokyo" });
+    const second = await repository.ensureDailyActivity({ localDate: "2026-04-26", timezone: "Asia/Tokyo" });
+
+    expect(second).toEqual(first);
+  });
+
+  test("テリトリー生成OFFでは日次Activityを作成しない", async () => {
+    const repository = createMockTerriRepository();
+    await repository.updateProfile({ territoryCaptureEnabled: false });
+
+    await expect(repository.ensureDailyActivity({ localDate: "2026-04-26", timezone: "Asia/Tokyo" })).rejects.toEqual(
+      new RepositoryError("テリトリー生成がOFFです", "permission-denied")
+    );
+  });
+
+  test("GPS点を2点以上追加してlive territoryを同期できる", async () => {
+    const repository = createMockTerriRepository();
+    const dailyActivity = await repository.ensureDailyActivity({ localDate: "2026-04-26", timezone: "Asia/Tokyo" });
+
+    await repository.appendLocationPoint({
+      dailyActivityId: dailyActivity.id,
+      latitude: 35.66,
+      longitude: 139.7,
+      accuracyM: 12,
+      speedMps: 1.2,
+      recordedAt: "2026-04-26T03:00:00.000Z"
+    });
+    await repository.appendLocationPoint({
+      dailyActivityId: dailyActivity.id,
+      latitude: 35.661,
+      longitude: 139.701,
+      accuracyM: 10,
+      speedMps: 1.4,
+      recordedAt: "2026-04-26T03:00:05.000Z"
+    });
+
+    const synced = await repository.syncLiveTerritory(dailyActivity.id);
+
+    expect(synced.dailyActivity.id).toBe(dailyActivity.id);
+    expect(synced.territory.id).toBe(dailyActivity.id);
+    expect(synced.territory.areaKm2).toBeGreaterThan(0);
+    expect(synced.territory.distanceKm).toBeGreaterThan(0);
+  });
+
+  test("低精度GPS点だけではlive territoryの距離と面積を増やさない", async () => {
+    const repository = createMockTerriRepository();
+    const dailyActivity = await repository.ensureDailyActivity({ localDate: "2026-04-26", timezone: "Asia/Tokyo" });
+
+    await repository.appendLocationPoint({
+      dailyActivityId: dailyActivity.id,
+      latitude: 35.66,
+      longitude: 139.7,
+      accuracyM: 80,
+      speedMps: 1.2,
+      recordedAt: "2026-04-26T03:00:00.000Z"
+    });
+
+    await expect(repository.syncLiveTerritory(dailyActivity.id)).resolves.toMatchObject({
+      stats: { distanceKm: 0, previewAreaKm2: 0 },
+      territory: { areaKm2: 0, distanceKm: 0 }
+    });
+  });
+
+  test("日次確定は再試行でき、確定後のGPS追加は拒否する", async () => {
+    const repository = createMockTerriRepository();
+    const dailyActivity = await repository.ensureDailyActivity({ localDate: "2026-04-26", timezone: "Asia/Tokyo" });
+
+    await repository.appendLocationPoint({
+      dailyActivityId: dailyActivity.id,
+      latitude: 35.66,
+      longitude: 139.7,
+      accuracyM: 12,
+      speedMps: 1.2,
+      recordedAt: "2026-04-26T03:00:00.000Z"
+    });
+    await repository.appendLocationPoint({
+      dailyActivityId: dailyActivity.id,
+      latitude: 35.661,
+      longitude: 139.701,
+      accuracyM: 10,
+      speedMps: 1.4,
+      recordedAt: "2026-04-26T03:00:05.000Z"
+    });
+
+    const finalized = await repository.finalizeDailyActivity(dailyActivity.id);
+    const retry = await repository.finalizeDailyActivity(dailyActivity.id);
+
+    expect(finalized.dailyActivity.status).toBe("finalized");
+    expect(retry).toEqual(finalized);
+    await expect(
+      repository.appendLocationPoint({
+        dailyActivityId: dailyActivity.id,
+        latitude: 35.662,
+        longitude: 139.702,
+        accuracyM: 10,
+        speedMps: 1.4,
+        recordedAt: "2026-04-26T03:00:10.000Z"
+      })
+    ).rejects.toEqual(new RepositoryError("確定済みの日次アクティビティにはGPS点を追加できません", "invalid-state"));
+    await expect(repository.syncLiveTerritory(dailyActivity.id)).rejects.toEqual(
+      new RepositoryError("確定済みの日次アクティビティは同期できません", "invalid-state")
     );
   });
 

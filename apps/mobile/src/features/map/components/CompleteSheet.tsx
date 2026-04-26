@@ -1,5 +1,5 @@
 import { Text, View } from "react-native";
-import type { CompleteActivityResult } from "@/lib/repositories/terriRepository";
+import type { LiveTerritoryResult } from "@terri/shared";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { Pill } from "@/components/ui/Pill";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
@@ -7,7 +7,7 @@ import { colors } from "@/theme/tokens";
 import { styles } from "./HomeMapScreen.styles";
 
 type CompleteSheetProps = {
-  result: CompleteActivityResult;
+  result: LiveTerritoryResult;
   onClose: () => void;
 };
 

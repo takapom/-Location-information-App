@@ -26,12 +26,12 @@ const territoryLayers: TerritoryLayer[] = [
 export const MapSurface = memo(function MapSurface({
   friends = [],
   activeFriendCount = 0,
-  tracking = false,
+  live = false,
   showRoute = false
 }: {
   friends?: MapFriendMarker[];
   activeFriendCount?: number;
-  tracking?: boolean;
+  live?: boolean;
   showRoute?: boolean;
 }) {
   return (
@@ -57,7 +57,7 @@ export const MapSurface = memo(function MapSurface({
       {showRoute ? <View style={styles.route} /> : null}
       <Text style={styles.place}>Shibuya</Text>
       <View style={styles.activePill}>
-        <Text style={styles.activeText}>{tracking ? "REC ● LIVE" : `${activeFriendCount} 人が今アクティブ 🔥`}</Text>
+        <Text style={styles.activeText}>{live ? "REC ● LIVE" : `${activeFriendCount} 人が今アクティブ 🔥`}</Text>
       </View>
       {friends.map((friend) => {
         const point = latLngToScreenPoint({ latitude: friend.latitude, longitude: friend.longitude });
