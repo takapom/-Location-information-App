@@ -56,9 +56,11 @@ export const MapSurface = memo(function MapSurface({
       ))}
       {showRoute ? <View style={styles.route} /> : null}
       <Text style={styles.place}>Shibuya</Text>
-      <View style={styles.activePill}>
-        <Text style={styles.activeText}>{live ? "REC ● LIVE" : `${activeFriendCount} 人が今アクティブ 🔥`}</Text>
-      </View>
+      {!live ? (
+        <View style={styles.activePill}>
+          <Text style={styles.activeText}>{`${activeFriendCount} 人が今アクティブ 🔥`}</Text>
+        </View>
+      ) : null}
       {friends.map((friend) => {
         const point = latLngToScreenPoint({ latitude: friend.latitude, longitude: friend.longitude });
 
@@ -140,26 +142,26 @@ const styles = StyleSheet.create({
   place: {
     position: "absolute",
     left: 24,
-    top: 80,
-    fontSize: 54,
-    lineHeight: 60,
+    top: 86,
+    fontSize: 42,
+    lineHeight: 48,
     fontWeight: font.heavy,
     color: colors.ink,
     letterSpacing: 0
   },
   activePill: {
     position: "absolute",
-    top: 190,
+    top: 156,
     alignSelf: "center",
-    paddingHorizontal: 18,
-    height: 44,
-    borderRadius: 24,
+    paddingHorizontal: 14,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: "#FFD5DF",
     alignItems: "center",
     justifyContent: "center"
   },
   activeText: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: font.heavy,
     color: colors.ink
   },

@@ -72,7 +72,7 @@ export function HomeMapScreen() {
     <View style={styles.screen}>
       <MapSurface friends={mapFriends} activeFriendCount={activeFriendCount} live={isLive} showRoute={isLive} />
       <TouchableOpacity style={styles.profileButton} onPress={() => router.push("/profile")}>
-        <Avatar initials={profile?.initials ?? "U"} color={profile?.territoryColor ?? colors.coral} size={58} active />
+        <Avatar initials={profile?.initials ?? "U"} color={profile?.territoryColor ?? colors.coral} size={48} active />
       </TouchableOpacity>
       {loadError ? <Text style={styles.errorBanner}>{loadError}</Text> : null}
       {liveTerritory.state.errorMessage ? <Text style={styles.liveErrorBanner}>{liveTerritory.state.errorMessage}</Text> : null}

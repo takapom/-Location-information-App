@@ -108,7 +108,7 @@ export const MapSurface = memo(function MapSurface({
     <div style={styles.shell} data-testid="map-surface">
       <div ref={containerRef} style={styles.map} aria-label="TERRI interactive map" />
       <div style={styles.place}>Shibuya</div>
-      <div style={styles.activePill}>{live ? "REC ● LIVE" : `${activeFriendCount} 人が今アクティブ 🔥`}</div>
+      {!live ? <div style={styles.activePill}>{`${activeFriendCount} 人が今アクティブ 🔥`}</div> : null}
     </div>
   );
 });
@@ -253,10 +253,10 @@ const styles: Record<string, React.CSSProperties> = {
   place: {
     position: "absolute",
     left: 24,
-    top: 80,
+    top: 86,
     zIndex: 500,
-    fontSize: 54,
-    lineHeight: "60px",
+    fontSize: 42,
+    lineHeight: "48px",
     fontWeight: 900,
     letterSpacing: 0,
     color: colors.ink,
@@ -264,19 +264,19 @@ const styles: Record<string, React.CSSProperties> = {
   },
   activePill: {
     position: "absolute",
-    top: 190,
+    top: 156,
     left: "50%",
     transform: "translateX(-50%)",
     zIndex: 500,
-    minWidth: 210,
-    height: 44,
-    padding: "0 18px",
-    borderRadius: 24,
+    minWidth: 168,
+    height: 34,
+    padding: "0 14px",
+    borderRadius: 17,
     background: "#FFD5DF",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: 900,
     color: colors.ink,
     boxShadow: "0 8px 18px rgba(0,0,0,.16)",

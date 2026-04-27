@@ -43,34 +43,34 @@ export const styles = StyleSheet.create({
   },
   startDock: {
     position: "absolute",
-    left: 44,
-    right: 44,
-    bottom: 52,
-    height: 86,
-    borderRadius: 44,
+    left: 58,
+    right: 58,
+    bottom: 24,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: colors.surface,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 18,
+    paddingHorizontal: 12,
     ...shadow
   },
   dockSide: {
-    width: 72,
-    height: 72,
+    width: 50,
+    height: 50,
     alignItems: "center",
     justifyContent: "center"
   },
   dockIcon: {
-    fontSize: 34,
+    fontSize: 25,
     color: colors.muted
   },
   startButton: {
-    width: 118,
-    height: 118,
-    borderRadius: 59,
+    width: 82,
+    height: 82,
+    borderRadius: 41,
     backgroundColor: colors.coral,
-    borderWidth: 8,
+    borderWidth: 6,
     borderColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
@@ -78,7 +78,7 @@ export const styles = StyleSheet.create({
   },
   startText: {
     color: colors.surface,
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: font.heavy
   },
   trackingWrap: {
@@ -89,42 +89,39 @@ export const styles = StyleSheet.create({
   },
   livePanel: {
     position: "absolute",
-    left: 24,
-    right: 24,
-    bottom: 154
+    left: 34,
+    right: 34,
+    bottom: 102
   },
   statsCard: {
-    height: 112,
-    borderRadius: 28,
+    height: 62,
+    borderRadius: 22,
     backgroundColor: colors.surface,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
+    paddingLeft: 12,
+    paddingRight: 10,
     ...shadow
   },
   stat: {
     flex: 1,
     alignItems: "center"
   },
-  statIcon: {
-    fontSize: 28,
-    color: colors.muted
-  },
   statValue: {
-    marginTop: 6,
-    fontSize: 25,
+    fontSize: 17,
     fontWeight: font.heavy,
     color: colors.ink
   },
   statLabel: {
-    marginTop: 2,
-    fontSize: 12,
+    marginTop: 1,
+    fontSize: 10,
     fontWeight: font.bold,
     color: colors.muted
   },
   divider: {
     width: 1,
-    height: 70,
+    height: 34,
     backgroundColor: colors.line
   },
   stopRow: {
@@ -163,18 +160,16 @@ export const styles = StyleSheet.create({
     fontWeight: font.heavy
   },
   syncButton: {
-    alignSelf: "center",
-    marginTop: 14,
-    minWidth: 156,
-    height: 50,
-    borderRadius: 25,
+    minWidth: 54,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: colors.ink,
     alignItems: "center",
     justifyContent: "center",
     ...shadow
   },
   syncText: {
-    fontSize: 18,
+    fontSize: 13,
     color: colors.surface,
     fontWeight: font.heavy
   },

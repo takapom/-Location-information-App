@@ -54,12 +54,12 @@ describe("MapSurface", () => {
     expect(output).toContain("1 人が今アクティブ 🔥");
   });
 
-  test("LIVE中はREC LIVE表示へ切り替わる", () => {
+  test("LIVE中は録画ピルを地図上に出さない", () => {
     let tree: renderer.ReactTestRenderer | undefined;
     act(() => {
       tree = renderer.create(<MapSurface friends={friends} live showRoute />);
     });
 
-    expect(JSON.stringify(tree?.toJSON())).toContain("REC ● LIVE");
+    expect(JSON.stringify(tree?.toJSON())).not.toContain("REC ● LIVE");
   });
 });

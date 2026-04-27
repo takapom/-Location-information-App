@@ -16,23 +16,22 @@ export function LiveTerritoryPanel({ stats, status, onSync }: LiveTerritoryPanel
   return (
     <View style={styles.livePanel}>
       <View style={styles.statsCard}>
-        <Stat label="状態" value={getLiveTerritoryStatusLabel(status)} icon="●" />
+        <Stat label="状態" value={getLiveTerritoryStatusLabel(status)} />
         <Divider />
-        <Stat label="今日の距離" value={`${stats.distanceKm.toFixed(1)} km`} icon="👣" />
+        <Stat label="距離" value={`${stats.distanceKm.toFixed(1)} km`} />
         <Divider />
-        <Stat label="見込み" value={`${stats.previewAreaKm2.toFixed(2)} km²`} icon="⬚" />
+        <Stat label="面積" value={`${stats.previewAreaKm2.toFixed(2)} km²`} />
+        <TouchableOpacity disabled={syncing} onPress={onSync} style={[styles.syncButton, syncing && { opacity: 0.7 }]}>
+          <Text style={styles.syncText}>{syncing ? "同期中" : "同期"}</Text>
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity disabled={syncing} onPress={onSync} style={[styles.syncButton, syncing && { opacity: 0.7 }]}>
-        <Text style={styles.syncText}>{syncing ? "同期中" : "今すぐ同期"}</Text>
-      </TouchableOpacity>
     </View>
   );
 }
 
-function Stat({ label, value, icon }: { label: string; value: string; icon: string }) {
+function Stat({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.stat}>
-      <Text style={styles.statIcon}>{icon}</Text>
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
