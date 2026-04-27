@@ -74,7 +74,7 @@ function initialsFromName(name: string) {
 }
 
 function formatDuration(startedAt: string | null, endedAt: string | null) {
-  if (!startedAt || !endedAt) return "LIVE";
+  if (!startedAt || !endedAt) return "進行中";
   const seconds = Math.max(0, Math.round((new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 1000));
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
@@ -331,7 +331,7 @@ export function createSupabaseTerriRepository(): TerriRepository {
     },
     async syncLiveTerritory(dailyActivityId) {
       try {
-        const { data, error } = await supabase.functions.invoke("sync-live-territory", { body: { dailyActivityId } });
+        const { data, error } = await supabase.rpc("sync_live_territory", { p_daily_activity_id: dailyActivityId });
         if (error) throw error;
         const result = unwrapFunctionResult(data);
         return await buildLiveResult(result.dailyActivityId ?? dailyActivityId);
@@ -341,7 +341,7 @@ export function createSupabaseTerriRepository(): TerriRepository {
     },
     async finalizeDailyActivity(dailyActivityId): Promise<FinalizedDailyActivity> {
       try {
-        const { data, error } = await supabase.functions.invoke("finalize-daily-activity", { body: { dailyActivityId } });
+        const { data, error } = await supabase.rpc("finalize_daily_activity", { p_daily_activity_id: dailyActivityId });
         if (error) throw error;
         const result = unwrapFunctionResult(data);
         const liveResult = await buildLiveResult(result.dailyActivityId ?? dailyActivityId);
