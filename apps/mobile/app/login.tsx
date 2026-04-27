@@ -1,11 +1,37 @@
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useState } from "react";
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
+import { useAuth } from "@/features/auth/AuthProvider";
 import { SoftBackdrop } from "@/components/ui/Backdrop";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { TerriLogo } from "@/components/ui/TerriLogo";
 import { colors, font } from "@/theme/tokens";
 
 export default function LoginScreen() {
+  const auth = useAuth();
+  const [email, setEmail] = useState("dev@terri.local");
+  const [password, setPassword] = useState("password123");
+  const [error, setError] = useState<string | undefined>();
+
+  const submit = async (mode: "signin" | "signup") => {
+    if (!auth.enabled) {
+      router.replace("/map");
+      return;
+    }
+
+    try {
+      setError(undefined);
+      if (mode === "signin") {
+        await auth.signInWithPassword({ email, password });
+      } else {
+        await auth.signUpWithPassword({ email, password });
+      }
+      router.replace("/map");
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "ログインできませんでした");
+    }
+  };
+
   return (
     <View style={styles.screen}>
       <SoftBackdrop />
@@ -14,25 +40,44 @@ export default function LoginScreen() {
         <Text style={styles.copy}>歩いた分だけ、世界が自分のものになる</Text>
       </View>
       <View style={styles.buttons}>
-        <PrimaryButton onPress={() => router.replace("/map")} variant="outline">
-          G  Googleで続ける
+        <TextInput
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          placeholder="email"
+          placeholderTextColor={colors.muted}
+          style={styles.input}
+        />
+        <TextInput
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          placeholder="password"
+          placeholderTextColor={colors.muted}
+          style={styles.input}
+        />
+        {error || auth.errorMessage ? <Text style={styles.error}>{error ?? auth.errorMessage}</Text> : null}
+        <PrimaryButton onPress={() => submit("signin")} variant="dark">
+          {auth.loading ? "接続中" : "ログイン"}
         </PrimaryButton>
-        <PrimaryButton onPress={() => router.replace("/map")} variant="dark">
-          Appleで続ける
+        <PrimaryButton onPress={() => submit("signup")} variant="outline">
+          アカウント作成
         </PrimaryButton>
-        <PrimaryButton onPress={() => router.replace("/map")}>LINEで続ける</PrimaryButton>
       </View>
       <View style={styles.orRow}>
         <View style={styles.line} />
         <Text style={styles.or}>または</Text>
         <View style={styles.line} />
       </View>
-      <TouchableOpacity onPress={() => router.replace("/map")}>
-        <Text style={styles.link}>メールアドレスでログイン⌄</Text>
+      <TouchableOpacity onPress={() => submit("signin")}>
+        <Text style={styles.link}>メールアドレスで続ける</Text>
       </TouchableOpacity>
-      <TouchableOpacity onPress={() => router.replace("/map")} style={styles.create}>
-        <Text style={styles.createText}>アカウントを作成</Text>
-      </TouchableOpacity>
+      {!auth.enabled ? (
+        <TouchableOpacity onPress={() => router.replace("/map")} style={styles.create}>
+          <Text style={styles.createText}>モックで始める</Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
@@ -57,6 +102,23 @@ const styles = StyleSheet.create({
   buttons: {
     marginTop: 80,
     gap: 20
+  },
+  input: {
+    height: 62,
+    borderRadius: 22,
+    borderWidth: 3,
+    borderColor: colors.line,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 20,
+    fontSize: 20,
+    fontWeight: font.heavy,
+    color: colors.ink
+  },
+  error: {
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: font.heavy,
+    color: colors.coral
   },
   orRow: {
     marginTop: 34,

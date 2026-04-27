@@ -12,6 +12,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "^3.0.2",
+    "@supabase/supabase-js": "^2.104.1",
     "@terri/shared": "workspace:*",
     "expo": "~54.0.33",
     "expo-router": "~6.0.23",

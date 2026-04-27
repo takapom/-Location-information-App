@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import type { TerritoryColor, UserProfile } from "@terri/shared";
+import { useAuth } from "@/features/auth/AuthProvider";
 import { Avatar } from "@/components/ui/Avatar";
 import { Pill } from "@/components/ui/Pill";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
@@ -11,6 +12,7 @@ import { colors, font, territoryColors } from "@/theme/tokens";
 
 export function ProfileScreen() {
   const repository = useTerriRepository();
+  const auth = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
@@ -23,6 +25,11 @@ export function ProfileScreen() {
 
   const updateSetting = async (input: Parameters<typeof repository.updateProfile>[0]) => {
     setProfile(await repository.updateProfile(input));
+  };
+
+  const signOut = async () => {
+    await auth.signOut();
+    router.replace("/login");
   };
 
   if (!profile) {
@@ -71,7 +78,7 @@ export function ProfileScreen() {
           ))}
         </View>
       </View>
-      <PrimaryButton variant="line">ログアウト</PrimaryButton>
+      <PrimaryButton onPress={signOut} variant="line">ログアウト</PrimaryButton>
     </View>
   );
 }

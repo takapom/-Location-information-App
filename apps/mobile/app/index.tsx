@@ -1,15 +1,25 @@
 import { useEffect } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
+import { useAuth } from "@/features/auth/AuthProvider";
 import { SoftBackdrop } from "@/components/ui/Backdrop";
 import { TerriLogo } from "@/components/ui/TerriLogo";
 import { colors, font } from "@/theme/tokens";
 
 export default function SplashScreen() {
+  const auth = useAuth();
+
   useEffect(() => {
-    const timer = setTimeout(() => router.replace("/onboarding"), 850);
+    const timer = setTimeout(() => {
+      if (auth.enabled && auth.loading) return;
+      if (auth.enabled && auth.session) {
+        router.replace("/map");
+        return;
+      }
+      router.replace("/onboarding");
+    }, 850);
     return () => clearTimeout(timer);
-  }, []);
+  }, [auth.enabled, auth.loading, auth.session]);
 
   return (
     <View style={styles.screen}>
