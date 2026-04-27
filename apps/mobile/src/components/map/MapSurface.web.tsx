@@ -1,8 +1,9 @@
 import { memo, useEffect, useMemo, useRef } from "react";
+import type { GeoPoint } from "@terri/shared";
 import { colors } from "@/theme/tokens";
-import { buildTerritoryPolygons, buildTrackingRoute, SHIBUYA_CENTER } from "./mapGeometry";
+import { buildTerritoryPolygons, buildTrackingRoute, SHIBUYA_CENTER, type LatLngTuple } from "./mapGeometry";
 import { buildFriendLayerKey } from "./mapLayerKeys";
-import type { MapFriendMarker } from "./mapTypes";
+import type { MapFriendMarker, MapSelfMarker } from "./mapTypes";
 
 type LeafletModule = typeof import("leaflet");
 type LeafletMap = import("leaflet").Map;
@@ -13,16 +14,27 @@ type MapLayerGroups = {
   base: LeafletLayerGroup;
   friends: LeafletLayerGroup;
   live: LeafletLayerGroup;
+  user: LeafletLayerGroup;
 };
 
 const leafletCssId = "terri-leaflet-css";
+const defaultSelfMarker: MapSelfMarker = {
+  initials: "U",
+  color: colors.coral
+};
 
 export const MapSurface = memo(function MapSurface({
+  center,
+  currentLocation,
+  currentUser = defaultSelfMarker,
   friends = [],
   activeFriendCount = 0,
   live = false,
   showRoute = false
 }: {
+  center?: GeoPoint;
+  currentLocation?: GeoPoint;
+  currentUser?: MapSelfMarker;
   friends?: MapFriendMarker[];
   activeFriendCount?: number;
   live?: boolean;
@@ -33,6 +45,9 @@ export const MapSurface = memo(function MapSurface({
   const mapRef = useRef<LeafletMap | null>(null);
   const groupsRef = useRef<MapLayerGroups | null>(null);
   const friendsKey = useMemo(() => buildFriendLayerKey(friends), [friends]);
+  const mapCenter = useMemo(() => toLatLngTuple(center), [center]);
+  const latestRenderInputRef = useRef({ mapCenter, currentLocation, currentUser, friends, live, showRoute });
+  latestRenderInputRef.current = { mapCenter, currentLocation, currentUser, friends, live, showRoute };
 
   useEffect(() => {
     let cancelled = false;
@@ -40,10 +55,11 @@ export const MapSurface = memo(function MapSurface({
     async function boot() {
       const L = await import("leaflet");
       if (cancelled || !containerRef.current || mapRef.current) return;
+      const latest = latestRenderInputRef.current;
 
       injectLeafletCss();
       const map = L.map(containerRef.current, {
-        center: SHIBUYA_CENTER,
+        center: latest.mapCenter,
         zoom: 16,
         minZoom: 13,
         maxZoom: 19,
@@ -68,16 +84,18 @@ export const MapSurface = memo(function MapSurface({
       const groups = {
         base: L.layerGroup().addTo(map),
         friends: L.layerGroup().addTo(map),
-        live: L.layerGroup().addTo(map)
+        live: L.layerGroup().addTo(map),
+        user: L.layerGroup().addTo(map)
       };
 
       leafletRef.current = L;
       mapRef.current = map;
       groupsRef.current = groups;
 
-      renderBaseLayers(L, groups.base);
-      renderFriendLayers(L, groups.friends, friends);
-      renderLiveLayers(L, groups.live, live, showRoute);
+      renderBaseLayers(L, groups.base, latest.mapCenter);
+      renderFriendLayers(L, groups.friends, latest.friends);
+      renderLiveLayers(L, groups.live, latest.live, latest.showRoute, latest.mapCenter);
+      renderCurrentLocationLayer(L, groups.user, latest.currentLocation, latest.currentUser);
       requestAnimationFrame(() => map.invalidateSize());
     }
 
@@ -95,27 +113,42 @@ export const MapSurface = memo(function MapSurface({
   }, []);
 
   useEffect(() => {
+    if (!mapRef.current) return;
+    mapRef.current.setView(mapCenter, Math.max(mapRef.current.getZoom(), 16), { animate: true });
+  }, [mapCenter]);
+
+  useEffect(() => {
+    if (!leafletRef.current || !groupsRef.current) return;
+    renderBaseLayers(leafletRef.current, groupsRef.current.base, mapCenter);
+    renderLiveLayers(leafletRef.current, groupsRef.current.live, live, showRoute, mapCenter);
+  }, [mapCenter, live, showRoute]);
+
+  useEffect(() => {
     if (!leafletRef.current || !groupsRef.current) return;
     renderFriendLayers(leafletRef.current, groupsRef.current.friends, friends);
   }, [friends, friendsKey]);
 
   useEffect(() => {
     if (!leafletRef.current || !groupsRef.current) return;
-    renderLiveLayers(leafletRef.current, groupsRef.current.live, live, showRoute);
-  }, [live, showRoute]);
+    renderCurrentLocationLayer(leafletRef.current, groupsRef.current.user, currentLocation, currentUser);
+  }, [currentLocation, currentUser]);
 
   return (
     <div style={styles.shell} data-testid="map-surface">
       <div ref={containerRef} style={styles.map} aria-label="TERRI interactive map" />
-      <div style={styles.place}>Shibuya</div>
+      <div style={styles.place}>{currentLocation ? "現在地" : "Shibuya"}</div>
       {!live ? <div style={styles.activePill}>{`${activeFriendCount} 人が今アクティブ 🔥`}</div> : null}
     </div>
   );
 });
 
-function renderBaseLayers(L: LeafletModule, group: LeafletLayerGroup) {
+function toLatLngTuple(point?: GeoPoint): LatLngTuple {
+  return point ? [point.latitude, point.longitude] : SHIBUYA_CENTER;
+}
+
+function renderBaseLayers(L: LeafletModule, group: LeafletLayerGroup, center: LatLngTuple) {
   group.clearLayers();
-  const polygons = buildTerritoryPolygons();
+  const polygons = buildTerritoryPolygons(center);
   group.addLayer(
     L.polygon(polygons.current, {
       color: colors.coral,
@@ -134,9 +167,9 @@ function renderBaseLayers(L: LeafletModule, group: LeafletLayerGroup) {
   );
 }
 
-function renderLiveLayers(L: LeafletModule, group: LeafletLayerGroup, live: boolean, showRoute: boolean) {
+function renderLiveLayers(L: LeafletModule, group: LeafletLayerGroup, live: boolean, showRoute: boolean, center: LatLngTuple) {
   group.clearLayers();
-  const polygons = buildTerritoryPolygons();
+  const polygons = buildTerritoryPolygons(center);
   if (live) {
     group.addLayer(
       L.polygon(polygons.preview, {
@@ -151,7 +184,7 @@ function renderLiveLayers(L: LeafletModule, group: LeafletLayerGroup, live: bool
 
   if (showRoute) {
     group.addLayer(
-      L.polyline(buildTrackingRoute(), {
+      L.polyline(buildTrackingRoute(center), {
         color: colors.coral,
         weight: 8,
         opacity: 0.82,
@@ -159,6 +192,35 @@ function renderLiveLayers(L: LeafletModule, group: LeafletLayerGroup, live: bool
       })
     );
   }
+}
+
+function renderCurrentLocationLayer(L: LeafletModule, group: LeafletLayerGroup, currentLocation?: GeoPoint, currentUser: MapSelfMarker = defaultSelfMarker) {
+  group.clearLayers();
+  if (!currentLocation) return;
+
+  group.addLayer(
+    L.marker([currentLocation.latitude, currentLocation.longitude], {
+      icon: L.divIcon({
+        html: currentLocationMarkerHtml(currentUser),
+        className: "",
+        iconSize: [64, 64],
+        iconAnchor: [32, 32]
+      })
+    })
+  );
+}
+
+function currentLocationMarkerHtml(currentUser: MapSelfMarker) {
+  return `
+    <div style="
+      width:58px;height:58px;border-radius:29px;background:white;border:6px solid ${currentUser.color};
+      display:flex;align-items:center;justify-content:center;font-weight:900;font-size:22px;color:#050505;
+      box-shadow:0 8px 16px rgba(0,0,0,.24);position:relative;box-sizing:border-box;
+    ">
+      ${escapeHtml(currentUser.initials)}
+      <div style="position:absolute;right:-2px;bottom:5px;width:18px;height:18px;border-radius:9px;background:#30D36F;border:3px solid white;box-sizing:border-box;"></div>
+    </div>
+  `;
 }
 
 function renderFriendLayers(L: LeafletModule, group: LeafletLayerGroup, friends: MapFriendMarker[]) {

@@ -43,11 +43,11 @@ export const styles = StyleSheet.create({
   },
   startDock: {
     position: "absolute",
-    left: 58,
-    right: 58,
+    left: 24,
+    right: 24,
     bottom: 24,
-    height: 64,
-    borderRadius: 32,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: colors.surface,
     flexDirection: "row",
     alignItems: "center",
@@ -56,8 +56,8 @@ export const styles = StyleSheet.create({
     ...shadow
   },
   dockSide: {
-    width: 50,
-    height: 50,
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center"
   },
@@ -65,20 +65,27 @@ export const styles = StyleSheet.create({
     fontSize: 25,
     color: colors.muted
   },
-  startButton: {
-    width: 82,
-    height: 82,
-    borderRadius: 41,
-    backgroundColor: colors.coral,
-    borderWidth: 6,
-    borderColor: colors.surface,
+  captureStatus: {
+    flex: 1,
+    minWidth: 0,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#F3F0F1",
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    ...shadow
+    paddingHorizontal: 12,
+    gap: 7
   },
-  startText: {
-    color: colors.surface,
-    fontSize: 18,
+  captureStatusDot: {
+    fontSize: 14,
+    lineHeight: 14,
+    fontWeight: font.heavy
+  },
+  captureStatusText: {
+    flexShrink: 1,
+    color: colors.ink,
+    fontSize: 13,
     fontWeight: font.heavy
   },
   trackingWrap: {
@@ -91,7 +98,49 @@ export const styles = StyleSheet.create({
     position: "absolute",
     left: 34,
     right: 34,
-    bottom: 102
+    bottom: 92
+  },
+  locationPrompt: {
+    minHeight: 64,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 8,
+    ...shadow
+  },
+  locationPromptTextWrap: {
+    flex: 1,
+    paddingRight: 10
+  },
+  locationPromptTitle: {
+    fontSize: 15,
+    fontWeight: font.heavy,
+    color: colors.ink
+  },
+  locationPromptBody: {
+    marginTop: 2,
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: font.bold,
+    color: colors.muted
+  },
+  locationPromptButton: {
+    height: 34,
+    minWidth: 58,
+    borderRadius: 17,
+    backgroundColor: colors.ink,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12
+  },
+  locationPromptButtonText: {
+    fontSize: 13,
+    fontWeight: font.heavy,
+    color: colors.surface
   },
   statsCard: {
     height: 62,
@@ -317,7 +366,9 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     paddingTop: 78,
     paddingHorizontal: 28,
-    paddingBottom: 36
+    paddingBottom: 36,
+    zIndex: 2000,
+    elevation: 20
   },
   decorCoral: {
     position: "absolute",
@@ -340,7 +391,13 @@ export const styles = StyleSheet.create({
   modalClose: {
     position: "absolute",
     right: 28,
-    top: 78
+    top: 78,
+    width: 56,
+    height: 56,
+    zIndex: 2002,
+    elevation: 22,
+    alignItems: "center",
+    justifyContent: "center"
   },
   modalCloseText: {
     fontSize: 48,

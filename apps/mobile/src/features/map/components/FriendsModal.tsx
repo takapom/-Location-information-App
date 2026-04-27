@@ -16,7 +16,7 @@ export function FriendsModal({ friends, onClose }: FriendsModalProps) {
     <View style={styles.modal}>
       <View style={styles.decorCoral} />
       <View style={styles.decorMint} />
-      <TouchableOpacity onPress={onClose} style={styles.modalClose}>
+      <TouchableOpacity accessibilityLabel="友達画面を閉じる" accessibilityRole="button" hitSlop={12} onPress={onClose} style={styles.modalClose}>
         <Text style={styles.modalCloseText}>×</Text>
       </TouchableOpacity>
       <Text style={styles.modalTitle}>友達</Text>

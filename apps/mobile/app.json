@@ -6,7 +6,15 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "移動した場所を領土として記録するために位置情報を使用します。"
+        }
+      ]
+    ],
     "experiments": {
       "typedRoutes": true
     }

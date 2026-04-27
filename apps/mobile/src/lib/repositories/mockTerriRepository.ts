@@ -91,7 +91,7 @@ export function createMockTerriRepository(seed?: Partial<{ profile: UserProfile;
       title: "今日",
       areaKm2,
       distanceKm,
-      duration: "LIVE",
+      duration: "進行中",
       color: profile.territoryColor,
       createdAtLabel: dailyActivity.localDate === todayLocalDate() ? "今日" : dailyActivity.localDate
     };
@@ -108,7 +108,7 @@ export function createMockTerriRepository(seed?: Partial<{ profile: UserProfile;
     const distanceKm = acceptedPointCount >= 2 ? Number(((acceptedPointCount - 1) * 0.12).toFixed(1)) : 0;
     const areaKm2 = acceptedPointCount >= 2 ? Number(Math.max(0.08, acceptedPointCount * 0.015).toFixed(2)) : 0;
     const syncedAt = new Date().toISOString();
-    const stats = { elapsed: "LIVE", distanceKm, previewAreaKm2: areaKm2, lastSyncedAt: syncedAt };
+    const stats = { elapsed: "進行中", distanceKm, previewAreaKm2: areaKm2, lastSyncedAt: syncedAt };
     const nextDailyActivity = { ...dailyActivity, stats };
     const territory = createTerritorySummary(dailyActivity, areaKm2, distanceKm);
 

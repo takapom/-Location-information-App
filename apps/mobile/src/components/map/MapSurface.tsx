@@ -1,10 +1,10 @@
 import { memo } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import type { TerritoryColor } from "@terri/shared";
+import type { GeoPoint, TerritoryColor } from "@terri/shared";
 import { Avatar } from "@/components/ui/Avatar";
 import { colors, font } from "@/theme/tokens";
-import { latLngToScreenPoint } from "./mapGeometry";
-import type { MapFriendMarker } from "./mapTypes";
+import { latLngToScreenPoint, type LatLngTuple } from "./mapGeometry";
+import type { MapFriendMarker, MapSelfMarker } from "./mapTypes";
 
 type TerritoryLayer = {
   id: string;
@@ -23,17 +23,30 @@ const territoryLayers: TerritoryLayer[] = [
   { id: "friend-green-2", color: colors.mint, x: 64, y: 70, width: 42, height: 24, rotate: "-7deg" }
 ];
 
+const defaultSelfMarker: MapSelfMarker = {
+  initials: "U",
+  color: colors.coral
+};
+
 export const MapSurface = memo(function MapSurface({
+  center,
+  currentLocation,
+  currentUser = defaultSelfMarker,
   friends = [],
   activeFriendCount = 0,
   live = false,
   showRoute = false
 }: {
+  center?: GeoPoint;
+  currentLocation?: GeoPoint;
+  currentUser?: MapSelfMarker;
   friends?: MapFriendMarker[];
   activeFriendCount?: number;
   live?: boolean;
   showRoute?: boolean;
 }) {
+  const mapCenter = toLatLngTuple(center);
+
   return (
     <View style={styles.map} testID="map-surface">
       <MapRoads />
@@ -55,14 +68,19 @@ export const MapSurface = memo(function MapSurface({
         />
       ))}
       {showRoute ? <View style={styles.route} /> : null}
-      <Text style={styles.place}>Shibuya</Text>
+      <Text style={styles.place}>{currentLocation ? "現在地" : "Shibuya"}</Text>
       {!live ? (
         <View style={styles.activePill}>
           <Text style={styles.activeText}>{`${activeFriendCount} 人が今アクティブ 🔥`}</Text>
         </View>
       ) : null}
+      {currentLocation ? (
+        <View style={[styles.currentLocationMarker, positionForPoint(currentLocation, mapCenter)]}>
+          <Avatar initials={currentUser.initials} color={currentUser.color} size={58} active />
+        </View>
+      ) : null}
       {friends.map((friend) => {
-        const point = latLngToScreenPoint({ latitude: friend.latitude, longitude: friend.longitude });
+        const point = latLngToScreenPoint({ latitude: friend.latitude, longitude: friend.longitude }, mapCenter);
 
         return (
           <View key={friend.id} style={[styles.marker, { left: `${point.x}%`, top: `${point.y}%` }]}>
@@ -73,6 +91,15 @@ export const MapSurface = memo(function MapSurface({
     </View>
   );
 });
+
+function toLatLngTuple(point?: GeoPoint): LatLngTuple | undefined {
+  return point ? [point.latitude, point.longitude] : undefined;
+}
+
+function positionForPoint(point: GeoPoint, center?: LatLngTuple) {
+  const screenPoint = latLngToScreenPoint(point, center);
+  return { left: `${screenPoint.x}%` as const, top: `${screenPoint.y}%` as const };
+}
 
 function MapRoads() {
   const roads: Array<{ rotate: string; left: `${number}%`; top: `${number}%`; width: `${number}%` }> = [
@@ -167,5 +194,10 @@ const styles = StyleSheet.create({
   },
   marker: {
     position: "absolute"
+  },
+  currentLocationMarker: {
+    position: "absolute",
+    marginLeft: -29,
+    marginTop: -29
   }
 });

@@ -11,3 +11,8 @@ export type MapFriendMarker = {
   latitude: number;
   longitude: number;
 };
+
+export type MapSelfMarker = {
+  initials: string;
+  color: TerritoryColor;
+};

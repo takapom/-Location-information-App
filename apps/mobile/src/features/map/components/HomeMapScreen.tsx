@@ -7,7 +7,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { useTerriRepository } from "@/lib/repositories/RepositoryProvider";
 import { formatPresenceUpdatedAt, getActiveFriendPresenceCount, getVisibleFriendPresences } from "@/features/friends/presence";
 import { useLiveTerritory } from "@/features/tracking/hooks/useLiveTerritory";
-import { getLiveTerritoryStatusLabel } from "@/features/tracking/services/liveTerritoryState";
+import { getTerritoryCaptureSummary } from "@/features/tracking/services/liveTerritoryState";
 import { colors } from "@/theme/tokens";
 import { FriendsModal } from "./FriendsModal";
 import { HistorySheet } from "./HistorySheet";
@@ -67,21 +67,37 @@ export function HomeMapScreen() {
     [visibleFriends]
   );
   const activeFriendCount = useMemo(() => getActiveFriendPresenceCount(friends), [friends]);
+  const currentLocation = liveTerritory.state.currentLocation;
+  const currentUserMarker = useMemo(
+    () => ({
+      initials: profile?.initials ?? "U",
+      color: profile?.territoryColor ?? colors.coral
+    }),
+    [profile]
+  );
 
   return (
     <View style={styles.screen}>
-      <MapSurface friends={mapFriends} activeFriendCount={activeFriendCount} live={isLive} showRoute={isLive} />
+      <MapSurface
+        center={currentLocation}
+        currentLocation={currentLocation}
+        currentUser={currentUserMarker}
+        friends={mapFriends}
+        activeFriendCount={activeFriendCount}
+        live={isLive}
+        showRoute={isLive}
+      />
       <TouchableOpacity style={styles.profileButton} onPress={() => router.push("/profile")}>
         <Avatar initials={profile?.initials ?? "U"} color={profile?.territoryColor ?? colors.coral} size={48} active />
       </TouchableOpacity>
       {loadError ? <Text style={styles.errorBanner}>{loadError}</Text> : null}
       {liveTerritory.state.errorMessage ? <Text style={styles.liveErrorBanner}>{liveTerritory.state.errorMessage}</Text> : null}
-      <LiveTerritoryPanel stats={liveTerritory.state.stats} status={liveTerritory.state.status} onSync={liveTerritory.sync} />
+      <LiveTerritoryPanel stats={liveTerritory.state.stats} status={liveTerritory.state.status} onRequestPermission={liveTerritory.activate} onSync={liveTerritory.sync} />
       <StartDock
+        captureLabel={getTerritoryCaptureSummary(liveTerritory.state.status)}
+        captureStatus={liveTerritory.state.status}
         onHistory={() => setOverlay("history")}
-        onLivePress={liveTerritory.sync}
         onRanking={() => setOverlay("ranking")}
-        liveLabel={getLiveTerritoryStatusLabel(liveTerritory.state.status)}
       />
       {overlay === "history" ? <HistorySheet activities={activities} onClose={() => setOverlay("none")} /> : null}
       {overlay === "ranking" ? <RankingSheet rankings={rankings} onFriends={() => setOverlay("friends")} /> : null}

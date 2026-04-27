@@ -54,12 +54,30 @@ describe("MapSurface", () => {
     expect(output).toContain("1 人が今アクティブ 🔥");
   });
 
-  test("LIVE中は録画ピルを地図上に出さない", () => {
+  test("領土化中は録画ピルを地図上に出さない", () => {
     let tree: renderer.ReactTestRenderer | undefined;
     act(() => {
       tree = renderer.create(<MapSurface friends={friends} live showRoute />);
     });
 
     expect(JSON.stringify(tree?.toJSON())).not.toContain("REC ● LIVE");
+  });
+
+  test("現在地がある場合は現在地ラベルとマーカーを表示する", () => {
+    let tree: renderer.ReactTestRenderer | undefined;
+    act(() => {
+      tree = renderer.create(
+        <MapSurface
+          currentLocation={{ latitude: 35.66, longitude: 139.7 }}
+          center={{ latitude: 35.66, longitude: 139.7 }}
+          currentUser={{ initials: "ME", color: colors.mint }}
+        />
+      );
+    });
+    const output = JSON.stringify(tree?.toJSON());
+
+    expect(output).toContain("現在地");
+    expect(output).toContain("ME");
+    expect(output).not.toContain("Shibuya");
   });
 });
