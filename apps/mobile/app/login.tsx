@@ -2,6 +2,7 @@ import { useState } from "react";
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "@/features/auth/AuthProvider";
+import { getPostAuthRoute, validateAuthCredentials, type AuthFormMode } from "@/features/auth/authForm";
 import { SoftBackdrop } from "@/components/ui/Backdrop";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { TerriLogo } from "@/components/ui/TerriLogo";
@@ -9,24 +10,31 @@ import { colors, font } from "@/theme/tokens";
 
 export default function LoginScreen() {
   const auth = useAuth();
-  const [email, setEmail] = useState("dev@terri.local");
-  const [password, setPassword] = useState("password123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | undefined>();
+  const canSubmit = Boolean(email.trim() && password) && !auth.loading;
 
-  const submit = async (mode: "signin" | "signup") => {
+  const submit = async (mode: AuthFormMode) => {
     if (!auth.enabled) {
       router.replace("/map");
+      return;
+    }
+
+    const validation = validateAuthCredentials({ email, password });
+    if (!validation.valid) {
+      setError(validation.message);
       return;
     }
 
     try {
       setError(undefined);
       if (mode === "signin") {
-        await auth.signInWithPassword({ email, password });
+        await auth.signInWithPassword(validation.credentials);
       } else {
-        await auth.signUpWithPassword({ email, password });
+        await auth.signUpWithPassword(validation.credentials);
       }
-      router.replace("/map");
+      router.replace(getPostAuthRoute(mode));
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "ログインできませんでした");
     }
@@ -42,37 +50,39 @@ export default function LoginScreen() {
       <View style={styles.buttons}>
         <TextInput
           value={email}
-          onChangeText={setEmail}
+          onChangeText={(value) => {
+            setEmail(value);
+            setError(undefined);
+          }}
           autoCapitalize="none"
+          autoComplete="email"
           keyboardType="email-address"
-          placeholder="email"
+          textContentType="emailAddress"
+          placeholder="メールアドレス"
           placeholderTextColor={colors.muted}
           style={styles.input}
         />
         <TextInput
           value={password}
-          onChangeText={setPassword}
+          onChangeText={(value) => {
+            setPassword(value);
+            setError(undefined);
+          }}
+          autoComplete="password"
           secureTextEntry
-          placeholder="password"
+          textContentType="password"
+          placeholder="パスワード"
           placeholderTextColor={colors.muted}
           style={styles.input}
         />
         {error || auth.errorMessage ? <Text style={styles.error}>{error ?? auth.errorMessage}</Text> : null}
-        <PrimaryButton onPress={() => submit("signin")} variant="dark">
+        <PrimaryButton disabled={!canSubmit} onPress={() => submit("signin")} variant="dark">
           {auth.loading ? "接続中" : "ログイン"}
         </PrimaryButton>
-        <PrimaryButton onPress={() => submit("signup")} variant="outline">
+        <PrimaryButton disabled={!canSubmit} onPress={() => submit("signup")} variant="outline">
           アカウント作成
         </PrimaryButton>
       </View>
-      <View style={styles.orRow}>
-        <View style={styles.line} />
-        <Text style={styles.or}>または</Text>
-        <View style={styles.line} />
-      </View>
-      <TouchableOpacity onPress={() => submit("signin")}>
-        <Text style={styles.link}>メールアドレスで続ける</Text>
-      </TouchableOpacity>
       {!auth.enabled ? (
         <TouchableOpacity onPress={() => router.replace("/map")} style={styles.create}>
           <Text style={styles.createText}>モックで始める</Text>
@@ -119,30 +129,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontWeight: font.heavy,
     color: colors.coral
-  },
-  orRow: {
-    marginTop: 34,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 18
-  },
-  line: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "#DAD7D5"
-  },
-  or: {
-    fontSize: 18,
-    color: colors.muted,
-    fontWeight: font.heavy
-  },
-  link: {
-    marginTop: 30,
-    textAlign: "center",
-    fontSize: 21,
-    color: colors.muted,
-    fontWeight: font.heavy,
-    textDecorationLine: "underline"
   },
   create: {
     marginTop: "auto"

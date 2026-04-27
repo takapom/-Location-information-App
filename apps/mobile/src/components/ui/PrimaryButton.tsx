@@ -2,10 +2,15 @@ import { Pressable, StyleSheet, Text } from "react-native";
 import type { PropsWithChildren } from "react";
 import { colors, font, shadow } from "@/theme/tokens";
 
-export function PrimaryButton({ children, onPress, variant = "filled" }: PropsWithChildren<{ onPress?: () => void; variant?: "filled" | "outline" | "dark" | "line" }>) {
+export function PrimaryButton({
+  children,
+  disabled,
+  onPress,
+  variant = "filled"
+}: PropsWithChildren<{ disabled?: boolean; onPress?: () => void; variant?: "filled" | "outline" | "dark" | "line" }>) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.button, styles[variant], pressed && styles.pressed]}>
-      <Text style={[styles.text, variant === "outline" || variant === "line" ? styles.outlineText : styles.filledText]}>{children}</Text>
+    <Pressable disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.button, styles[variant], pressed && !disabled && styles.pressed, disabled && styles.disabled]}>
+      <Text style={[styles.text, variant === "outline" || variant === "line" ? styles.outlineText : styles.filledText, disabled && styles.disabledText]}>{children}</Text>
     </Pressable>
   );
 }
@@ -42,6 +47,11 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.98 }],
     opacity: 0.9
   },
+  disabled: {
+    opacity: 0.48,
+    shadowOpacity: 0,
+    elevation: 0
+  },
   text: {
     fontSize: 22,
     fontWeight: font.heavy,
@@ -52,5 +62,8 @@ const styles = StyleSheet.create({
   },
   outlineText: {
     color: colors.coral
+  },
+  disabledText: {
+    color: colors.muted
   }
 });

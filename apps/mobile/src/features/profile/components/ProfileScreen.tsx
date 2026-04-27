@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import type { TerritoryColor, UserProfile } from "@terri/shared";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { Avatar } from "@/components/ui/Avatar";
@@ -13,6 +13,8 @@ import { colors, font, territoryColors } from "@/theme/tokens";
 export function ProfileScreen() {
   const repository = useTerriRepository();
   const auth = useAuth();
+  const params = useLocalSearchParams<{ setup?: string }>();
+  const isInitialSetup = params.setup === "1";
   const [profile, setProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
@@ -32,6 +34,14 @@ export function ProfileScreen() {
     router.replace("/login");
   };
 
+  const close = () => {
+    if (isInitialSetup) {
+      router.replace("/map");
+      return;
+    }
+    router.back();
+  };
+
   if (!profile) {
     return (
       <View style={styles.screen}>
@@ -43,8 +53,8 @@ export function ProfileScreen() {
   return (
     <View style={styles.screen}>
       <SoftBackdrop />
-      <TouchableOpacity onPress={() => router.back()} style={styles.close}>
-        <Text style={styles.closeText}>×</Text>
+      <TouchableOpacity onPress={close} style={styles.close}>
+        <Text style={[styles.closeText, isInitialSetup && styles.doneText]}>{isInitialSetup ? "完了" : "×"}</Text>
       </TouchableOpacity>
       <View style={styles.header}>
         <Avatar initials={profile.initials} color={profile.territoryColor} size={122} active />
@@ -78,6 +88,11 @@ export function ProfileScreen() {
           ))}
         </View>
       </View>
+      {isInitialSetup ? (
+        <PrimaryButton onPress={() => router.replace("/map")} variant="dark">
+          この設定ではじめる
+        </PrimaryButton>
+      ) : null}
       <PrimaryButton onPress={signOut} variant="line">ログアウト</PrimaryButton>
     </View>
   );
@@ -118,6 +133,10 @@ const styles = StyleSheet.create({
   closeText: {
     fontSize: 48,
     color: colors.coral
+  },
+  doneText: {
+    fontSize: 18,
+    fontWeight: font.heavy
   },
   header: {
     alignItems: "center"
