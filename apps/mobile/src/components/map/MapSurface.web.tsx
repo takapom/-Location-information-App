@@ -51,6 +51,7 @@ export const MapSurface = memo(function MapSurface({
 
   useEffect(() => {
     let cancelled = false;
+    let resizeFrameId: number | undefined;
 
     async function boot() {
       const L = await import("leaflet");
@@ -96,13 +97,20 @@ export const MapSurface = memo(function MapSurface({
       renderFriendLayers(L, groups.friends, latest.friends);
       renderLiveLayers(L, groups.live, latest.live, latest.showRoute, latest.mapCenter);
       renderCurrentLocationLayer(L, groups.user, latest.currentLocation, latest.currentUser);
-      requestAnimationFrame(() => map.invalidateSize());
+      resizeFrameId = requestAnimationFrame(() => {
+        if (!cancelled && mapRef.current === map) {
+          map.invalidateSize();
+        }
+      });
     }
 
     boot();
 
     return () => {
       cancelled = true;
+      if (resizeFrameId !== undefined) {
+        cancelAnimationFrame(resizeFrameId);
+      }
       if (mapRef.current) {
         mapRef.current.remove();
         leafletRef.current = null;
