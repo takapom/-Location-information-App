@@ -5,7 +5,10 @@ apps/*/node_modules/
 apps/*/.expo/
 .serena/
 dist/
+apps/mobile/dist-web/
 coverage/
+supabase/.branches/
+supabase/.temp/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
