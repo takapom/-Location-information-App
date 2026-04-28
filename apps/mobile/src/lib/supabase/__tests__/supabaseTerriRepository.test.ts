@@ -1,5 +1,12 @@
 import { colors } from "@/theme/tokens";
-import { mapAcceptedFriendRow, mapActivitySummary, mapDailyActivityRow, mapFriendSearchRow, mapIncomingFriendRequestRow } from "@/lib/supabase/supabaseTerriRepository";
+import {
+  mapAcceptedFriendRow,
+  mapActivitySummary,
+  mapDailyActivityRow,
+  mapFriendSearchRow,
+  mapIncomingFriendRequestRow,
+  mapRankingRow
+} from "@/lib/supabase/supabaseTerriRepository";
 
 const dailyRow = {
   id: "activity-1",
@@ -106,5 +113,29 @@ describe("supabaseTerriRepository mappers", () => {
       totalAreaKm2: 0.9
     });
     expect(friend.position).toBeUndefined();
+  });
+
+  test("友達ランキングRPCの行をRankingEntry契約へ変換する", () => {
+    expect(
+      mapRankingRow({
+        user_id: "friend-1",
+        display_name: "Aoi",
+        avatar_url: null,
+        territory_color: colors.mint,
+        total_area_m2: 1234567,
+        delta_area_m2: 0,
+        rank: 2,
+        is_current_user: false
+      })
+    ).toMatchObject({
+      id: "friend-1",
+      rank: 2,
+      name: "Aoi",
+      initials: "AO",
+      areaKm2: 1.2346,
+      deltaKm2: 0,
+      color: colors.mint,
+      isCurrentUser: false
+    });
   });
 });

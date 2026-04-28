@@ -91,6 +91,17 @@ type AcceptedFriendRow = {
   accepted_at: string;
 };
 
+type RankingRow = {
+  user_id: string;
+  display_name: string;
+  avatar_url: string | null;
+  territory_color: string | null;
+  total_area_m2: number;
+  delta_area_m2: number;
+  rank: number;
+  is_current_user: boolean;
+};
+
 type DailyActivityRow = {
   id: string;
   user_id: string;
@@ -283,6 +294,20 @@ export function mapAcceptedFriendRow(row: AcceptedFriendRow): FriendPresence {
   };
 }
 
+export function mapRankingRow(row: RankingRow): RankingEntry {
+  const name = row.display_name?.trim() || defaultName;
+  return {
+    id: row.user_id,
+    rank: row.rank,
+    name,
+    initials: initialsFromName(name),
+    areaKm2: Number(((row.total_area_m2 ?? 0) / 1_000_000).toFixed(4)),
+    deltaKm2: Number(((row.delta_area_m2 ?? 0) / 1_000_000).toFixed(4)),
+    color: asTerritoryColor(row.territory_color),
+    isCurrentUser: row.is_current_user
+  };
+}
+
 function unwrapFunctionResult(data: unknown): FunctionResult {
   if (data && typeof data === "object" && "data" in data) {
     return (data as { data: FunctionResult }).data ?? {};
@@ -472,18 +497,14 @@ export function createSupabaseTerriRepository(): TerriRepository {
       }
     },
     async getRankings() {
-      const profile = await ensureProfile();
-      const ranking: RankingEntry = {
-        id: profile.id,
-        rank: 1,
-        name: profile.name,
-        initials: profile.initials,
-        areaKm2: profile.totalAreaKm2,
-        deltaKm2: 0,
-        color: profile.territoryColor,
-        isCurrentUser: true
-      };
-      return [ranking];
+      try {
+        await ensureProfile();
+        const { data, error } = await supabase.rpc("list_friend_rankings");
+        if (error) throw error;
+        return ((data ?? []) as RankingRow[]).map(mapRankingRow);
+      } catch (error) {
+        throw normalizeError(error, "ランキングを取得できませんでした");
+      }
     },
     async getActivities() {
       try {

@@ -60,4 +60,22 @@ describe("Supabase SQL contracts", () => {
     expect(rlsSql).toContain("delete from public.friendships");
     expect(rlsSql).toContain("grant execute on function public.respond_friend_request(uuid, text) to authenticated");
   });
+
+  test("friend rankings are scoped to self and accepted friends through an authenticated RPC", () => {
+    const sql = readMigration("0008_friend_rankings.sql");
+
+    expect(sql).toContain("list_friend_rankings()");
+    expect(sql).toContain("security definer");
+    expect(sql).toContain("v_user_id uuid := auth.uid()");
+    expect(sql).toContain("raise exception 'auth required'");
+    expect(sql).toContain("select");
+    expect(sql).toContain("v_user_id as user_id");
+    expect(sql).toContain("fs.status = 'accepted'");
+    expect(sql).toContain("fs.requester_user_id = v_user_id or fs.receiver_user_id = v_user_id");
+    expect(sql).toContain("dense_rank() over (order by t.total_area_m2 desc)::integer as ranking_rank");
+    expect(sql).toContain("order by ranked.ranking_rank asc, ranked.display_name asc");
+    expect(sql).toContain("0::double precision as delta_area_m2");
+    expect(sql).toContain("revoke all on function public.list_friend_rankings() from public");
+    expect(sql).toContain("grant execute on function public.list_friend_rankings() to authenticated");
+  });
 });

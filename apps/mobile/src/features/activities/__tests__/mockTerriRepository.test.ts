@@ -147,6 +147,17 @@ describe("mockTerriRepository", () => {
     await expect(repository.getActivity("today")).resolves.toMatchObject({ id: "today", distanceKm: 5.2 });
   });
 
+  test("ランキングはRankingEntry契約を保ち現在ユーザーを含む", async () => {
+    const repository = createMockTerriRepository();
+
+    await expect(repository.getRankings()).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ rank: 1, areaKm2: 8.4 }),
+        expect.objectContaining({ id: "user-current", isCurrentUser: true })
+      ])
+    );
+  });
+
   test("ユーザーID検索から友達申請をpendingで作成できる", async () => {
     const repository = createMockTerriRepository();
 
