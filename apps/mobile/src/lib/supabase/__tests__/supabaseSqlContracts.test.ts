@@ -44,4 +44,20 @@ describe("Supabase SQL contracts", () => {
     expect(sql).toContain("grant execute on function public.search_profiles_by_friend_code(text) to authenticated");
     expect(sql).toContain("grant execute on function public.request_friend_by_code(text) to authenticated");
   });
+
+  test("friend request response is receiver-only and direct friendship updates are closed", () => {
+    const rlsSql = readMigration("0007_friend_request_response.sql");
+
+    expect(rlsSql).toContain('drop policy if exists "friendships_update_participant"');
+    expect(rlsSql).toContain('drop policy if exists "friendships_insert_requester"');
+    expect(rlsSql).toContain("list_incoming_friend_requests()");
+    expect(rlsSql).toContain("list_outgoing_friend_requests()");
+    expect(rlsSql).toContain("respond_friend_request(p_friendship_id uuid, p_action text)");
+    expect(rlsSql).toContain("v_action not in ('accept', 'reject')");
+    expect(rlsSql).toContain("receiver_user_id = v_user_id");
+    expect(rlsSql).toContain("status = 'pending'");
+    expect(rlsSql).toContain("set status = 'accepted'");
+    expect(rlsSql).toContain("delete from public.friendships");
+    expect(rlsSql).toContain("grant execute on function public.respond_friend_request(uuid, text) to authenticated");
+  });
 });

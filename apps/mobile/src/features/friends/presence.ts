@@ -1,9 +1,17 @@
-import type { FriendPresence } from "@terri/shared";
+import type { FriendPresence, GeoPoint } from "@terri/shared";
 
 export const FRIEND_PRESENCE_OFFLINE_AFTER_MINUTES = 30;
 
-export function getVisibleFriendPresences(friends: FriendPresence[]) {
-  return friends.filter((friend) => friend.locationSharingEnabled);
+export type VisibleFriendPresence = FriendPresence & {
+  position: GeoPoint;
+};
+
+function hasVisiblePosition(friend: FriendPresence): friend is VisibleFriendPresence {
+  return friend.locationSharingEnabled && Boolean(friend.position);
+}
+
+export function getVisibleFriendPresences(friends: FriendPresence[]): VisibleFriendPresence[] {
+  return friends.filter(hasVisiblePosition);
 }
 
 export function isFriendPresenceOnline(friend: FriendPresence, now = new Date()) {

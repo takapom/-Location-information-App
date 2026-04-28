@@ -32,6 +32,7 @@ jest.mock("react-native", () => {
     },
     Pressable: ({ children, onPress, style, ...props }: { children?: React.ReactNode; onPress?: () => void; style?: unknown }) =>
       React.createElement("Pressable", { ...props, onPress, style: typeof style === "function" ? style({ pressed: false }) : style }, children),
+    ScrollView: ({ children, ...props }: { children?: React.ReactNode }) => React.createElement("ScrollView", props, children),
     Text: ({ children, ...props }: { children?: React.ReactNode }) => React.createElement("Text", props, children),
     TextInput: (props: unknown) => React.createElement("TextInput", props),
     TouchableOpacity: ({ children, onPress, ...props }: { children?: React.ReactNode; onPress?: () => void }) =>
@@ -153,11 +154,12 @@ describe("map controls", () => {
     expect(onFriends).toHaveBeenCalledTimes(1);
   });
 
-  test("友達モーダルの閉じる・コピー・検索ボタンが押下できる", () => {
+  test("友達モーダルの閉じる・コピー・検索ボタンが押下できる", async () => {
     const onClose = jest.fn();
     let tree: renderer.ReactTestRenderer | undefined;
-    act(() => {
+    await act(async () => {
       tree = renderer.create(<FriendsModal friends={[friend]} onClose={onClose} />);
+      await new Promise((resolve) => setTimeout(resolve, 100));
     });
 
     act(() => {
@@ -199,5 +201,28 @@ describe("map controls", () => {
     });
 
     expect(tree?.root.findByProps({ testID: "friend-request-label-RIKU2026" }).props.children).toBe("申請済み");
+  });
+
+  test("届いた友達申請を承認すると友達一覧の更新を通知する", async () => {
+    const repository = createMockTerriRepository();
+    const onFriendsChange = jest.fn();
+    let tree: renderer.ReactTestRenderer | undefined;
+    await act(async () => {
+      tree = renderer.create(
+        <RepositoryProvider repository={repository}>
+          <FriendsModal friends={[friend]} onFriendsChange={onFriendsChange} onClose={jest.fn()} />
+        </RepositoryProvider>
+      );
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+
+    await act(async () => {
+      tree?.root.findByProps({ testID: "friend-request-accept-friendship-yui" }).props.onPress();
+      await new Promise((resolve) => setTimeout(resolve, 220));
+    });
+
+    expect(onFriendsChange).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ id: "yui" }), expect.objectContaining({ id: "sakura" })]));
   });
 });

@@ -27,6 +27,7 @@ jest.mock("react-native", () => {
     },
     Pressable: ({ children, onPress, style, ...props }: { children?: React.ReactNode; onPress?: () => void; style?: unknown }) =>
       React.createElement("Pressable", { ...props, onPress, style: typeof style === "function" ? style({ pressed: false }) : style }, children),
+    ScrollView: ({ children, ...props }: { children?: React.ReactNode }) => React.createElement("ScrollView", props, children),
     Text: ({ children, ...props }: { children?: React.ReactNode }) => React.createElement("Text", props, children),
     TextInput: (props: unknown) => React.createElement("TextInput", props),
     TouchableOpacity: ({ children, onPress, ...props }: { children?: React.ReactNode; onPress?: () => void }) =>
@@ -65,10 +66,24 @@ jest.mock("@/features/tracking/hooks/useLiveTerritory", () => ({
   })
 }));
 
+jest.mock("@/features/friends/hooks/useFriendRequests", () => ({
+  useFriendRequests: () => ({
+    incomingRequests: [],
+    outgoingRequests: [],
+    status: "success",
+    errorMessage: undefined,
+    respondingFriendshipId: undefined,
+    load: jest.fn(),
+    respond: jest.fn()
+  })
+}));
+
 jest.mock("@/lib/repositories/RepositoryProvider", () => ({
   useTerriRepository: () => ({
     getProfile: () => new Promise(() => undefined),
     getFriends: () => new Promise(() => undefined),
+    getIncomingFriendRequests: () => Promise.resolve([]),
+    getOutgoingFriendRequests: () => Promise.resolve([]),
     getActivities: () => new Promise(() => undefined),
     getRankings: () => new Promise(() => undefined)
   })

@@ -163,6 +163,43 @@ describe("mockTerriRepository", () => {
     ]);
   });
 
+  test("受信した友達申請を承認すると友達一覧へ反映される", async () => {
+    const repository = createMockTerriRepository();
+
+    await expect(repository.getIncomingFriendRequests()).resolves.toEqual([
+      expect.objectContaining({ friendshipId: "friendship-yui", requesterUserId: "yui" })
+    ]);
+
+    await expect(repository.respondFriendRequest("friendship-yui", "accept")).resolves.toMatchObject({
+      friendshipId: "friendship-yui",
+      requesterUserId: "yui",
+      status: "accepted"
+    });
+    await expect(repository.getIncomingFriendRequests()).resolves.toEqual([]);
+    await expect(repository.getFriends()).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ id: "yui" }), expect.objectContaining({ id: "sakura" })]));
+  });
+
+  test("受信した友達申請を拒否すると申請だけ消え、再申請可能な状態にする", async () => {
+    const repository = createMockTerriRepository();
+
+    await expect(repository.respondFriendRequest("friendship-yui", "reject")).resolves.toMatchObject({
+      friendshipId: "friendship-yui",
+      requesterUserId: "yui",
+      status: "rejected"
+    });
+
+    await expect(repository.getIncomingFriendRequests()).resolves.toEqual([]);
+    await expect(repository.getFriends()).resolves.not.toEqual(expect.arrayContaining([expect.objectContaining({ id: "yui" })]));
+  });
+
+  test("送信済み申請を自分で承認することはできない", async () => {
+    const repository = createMockTerriRepository();
+
+    await expect(repository.respondFriendRequest("friendship-mei", "accept")).rejects.toEqual(
+      new RepositoryError("受信した友達申請だけ操作できます", "permission-denied")
+    );
+  });
+
   test("存在しないユーザーIDへの友達申請はnot-foundを返す", async () => {
     const repository = createMockTerriRepository();
 

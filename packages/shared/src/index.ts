@@ -61,7 +61,7 @@ export type FriendPresence = {
   isActive: boolean;
   updatedAt: string;
   locationSharingEnabled: boolean;
-  position: GeoPoint;
+  position?: GeoPoint;
   avatarUrl?: string;
 };
 
@@ -82,6 +82,43 @@ export type FriendRequestResult = {
   friendshipId: string;
   receiverUserId: string;
   status: "pending" | "accepted";
+};
+
+export type FriendRequestAction = "accept" | "reject";
+
+export type FriendRequestProfile = {
+  id: string;
+  friendCode: string;
+  displayName: string;
+  initials: string;
+  color: TerritoryColor;
+  totalAreaKm2: number;
+  avatarUrl?: string;
+};
+
+export type FriendRequest = {
+  friendshipId: string;
+  status: "pending";
+  requestedAt: string;
+  profile: FriendRequestProfile;
+};
+
+export type IncomingFriendRequest = FriendRequest & {
+  requesterUserId: string;
+  requester: FriendRequestProfile;
+};
+
+export type OutgoingFriendRequest = FriendRequest & {
+  receiverUserId: string;
+  receiver: FriendRequestProfile;
+};
+
+export type FriendRequestActionResult = {
+  friendshipId: string;
+  requesterUserId: string;
+  receiverUserId: string;
+  action: FriendRequestAction;
+  status: "accepted" | "rejected";
 };
 
 export type RankingEntry = {

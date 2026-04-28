@@ -384,6 +384,12 @@ export const styles = StyleSheet.create({
     zIndex: 2000,
     elevation: 20
   },
+  modalScroll: {
+    flex: 1
+  },
+  modalScrollContent: {
+    paddingBottom: 36
+  },
   decorCoral: {
     position: "absolute",
     left: -65,
@@ -423,8 +429,46 @@ export const styles = StyleSheet.create({
     fontWeight: font.heavy,
     color: colors.ink
   },
+  friendRequestSection: {
+    marginTop: 18
+  },
+  friendRequestSectionTitle: {
+    fontSize: 18,
+    fontWeight: font.heavy,
+    color: colors.ink
+  },
+  friendRequestRow: {
+    minHeight: 74,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line
+  },
+  friendRequestActions: {
+    flexDirection: "row",
+    gap: 8
+  },
+  friendRequestSmallButton: {
+    minWidth: 58,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.mint,
+    paddingHorizontal: 10
+  },
+  friendRequestRejectButton: {
+    backgroundColor: "#EFEFEF"
+  },
+  outgoingRequestList: {
+    marginTop: 8,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8
+  },
   search: {
-    marginTop: 36,
+    marginTop: 24,
     height: 62,
     borderRadius: 31,
     backgroundColor: "#EFEFEF",

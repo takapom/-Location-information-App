@@ -330,7 +330,8 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=<supabase statusで表示されるanon key>
 | 友達招待 | Edge Function `issue-friend-invite` | 招待リンク発行 |
 | 招待承認 | Edge Function `accept-friend-invite` | Friendship作成 |
 | 友達ID検索 | RPC `search_profiles_by_friend_code` / `request_friend_by_code` + auth.uid() | 公開可能なプロフィール最小項目だけを返し、申請作成はDB側で認証ユーザーから導く |
-| 友達一覧 | `friendships` select/RPC + RLS | S10 |
+| 友達申請一覧/応答 | RPC `list_incoming_friend_requests` / `list_outgoing_friend_requests` / `respond_friend_request` + auth.uid() | 受信者だけがpending申請を承認/拒否できる。拒否はpending行を削除し、blockedとは分ける |
+| 友達一覧 | RPC `list_accepted_friends` + RLS/auth.uid() | accepted friendshipsの公開プロフィール最小項目を返す。ライブ現在地はPresenceから別途扱う |
 | 友達ランキング | SQL view/RPC | 友達間の総面積ランキング |
 | 友達現在地 | Realtime Presence/Broadcast | 15秒更新、アクティブ状態 |
 | 友達陣地表示 | `territories` RPC + friendship認可 | 友達の確定済み陣地表示 |
@@ -471,6 +472,7 @@ Feature単位の責務:
 | 認可 | Postgres RLSで本人データと友達データの閲覧範囲を制御する |
 | サーバー処理 | Edge FunctionsではJWTを検証し、`auth.uid()`相当のユーザーだけ処理する |
 | 友達データ | 友達関係が`accepted`の場合のみランキング・陣地・現在地を返す |
+| 友達申請 | 申請作成、承認、拒否はRPC経由で実行する。`friendships` の直接insert/updateは許可しない |
 | 現在地共有 | OFFならRealtime Presenceを送信しない。既存presenceも可能な範囲で退室/上書きする |
 | 自分の履歴 | DailyActivity用GPS点は自分の履歴としてPostgresに保存する |
 | 友達の履歴 | 保存しない。取得時点のpresenceだけを返す |

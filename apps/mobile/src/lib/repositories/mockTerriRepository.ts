@@ -1,10 +1,15 @@
 import type {
   DailyActivity,
   FriendPresence,
+  FriendRequestAction,
+  FriendRequestActionResult,
+  FriendRequestProfile,
   FriendRequestResult,
   FriendSearchResult,
+  IncomingFriendRequest,
   LiveTerritoryResult,
   LocationPointInput,
+  OutgoingFriendRequest,
   RankingEntry,
   TerritoryColor,
   TerritorySummary,
@@ -50,7 +55,52 @@ const initialSearchProfiles: FriendSearchResult[] = [
   { id: "sakura", friendCode: "SAKURA01", displayName: "Sakura", initials: "S", color: colors.coral, totalAreaKm2: 1.5, requestStatus: "accepted" },
   { id: "kenji", friendCode: "KENJI99", displayName: "Kenji_XYZ", initials: "K", color: colors.sky, totalAreaKm2: 3.2, requestStatus: "accepted" },
   { id: "riku", friendCode: "RIKU2026", displayName: "Riku", initials: "R", color: colors.yellow, totalAreaKm2: 0.4, requestStatus: "none" },
-  { id: "mei", friendCode: "MEI333", displayName: "Mei", initials: "M", color: colors.pink, totalAreaKm2: 2.1, requestStatus: "none" }
+  { id: "mei", friendCode: "MEI333", displayName: "Mei", initials: "M", color: colors.pink, totalAreaKm2: 2.1, requestStatus: "pending" }
+];
+
+const yuiRequestProfile: FriendRequestProfile = {
+  id: "yui",
+  friendCode: "YUI777",
+  displayName: "Yui",
+  initials: "Y",
+  color: colors.lavender,
+  totalAreaKm2: 0.9
+};
+
+const initialIncomingFriendRequests: IncomingFriendRequest[] = [
+  {
+    friendshipId: "friendship-yui",
+    requesterUserId: "yui",
+    requester: yuiRequestProfile,
+    profile: yuiRequestProfile,
+    status: "pending",
+    requestedAt: minutesAgo(12)
+  }
+];
+
+const initialOutgoingFriendRequests: OutgoingFriendRequest[] = [
+  {
+    friendshipId: "friendship-mei",
+    receiverUserId: "mei",
+    receiver: {
+      id: "mei",
+      friendCode: "MEI333",
+      displayName: "Mei",
+      initials: "M",
+      color: colors.pink,
+      totalAreaKm2: 2.1
+    },
+    profile: {
+      id: "mei",
+      friendCode: "MEI333",
+      displayName: "Mei",
+      initials: "M",
+      color: colors.pink,
+      totalAreaKm2: 2.1
+    },
+    status: "pending",
+    requestedAt: minutesAgo(28)
+  }
 ];
 
 const initialRankings: RankingEntry[] = [
@@ -78,14 +128,59 @@ function createDailyActivity(input: EnsureDailyActivityInput): DailyActivity {
   };
 }
 
+function copyFriendRequestProfile(profile: FriendRequestProfile): FriendRequestProfile {
+  return { ...profile };
+}
+
+function copyIncomingFriendRequest(request: IncomingFriendRequest): IncomingFriendRequest {
+  return {
+    ...request,
+    requester: copyFriendRequestProfile(request.requester),
+    profile: copyFriendRequestProfile(request.profile)
+  };
+}
+
+function copyOutgoingFriendRequest(request: OutgoingFriendRequest): OutgoingFriendRequest {
+  return {
+    ...request,
+    receiver: copyFriendRequestProfile(request.receiver),
+    profile: copyFriendRequestProfile(request.profile)
+  };
+}
+
+function friendPresenceFromRequestProfile(profile: FriendRequestProfile): FriendPresence {
+  return {
+    id: profile.id,
+    displayName: profile.displayName,
+    initials: profile.initials,
+    color: profile.color,
+    totalAreaKm2: profile.totalAreaKm2,
+    isActive: false,
+    updatedAt: new Date().toISOString(),
+    locationSharingEnabled: true,
+    position: { latitude: 35.659, longitude: 139.702 },
+    avatarUrl: profile.avatarUrl
+  };
+}
+
 export function createMockTerriRepository(
-  seed?: Partial<{ profile: UserProfile; activities: TerritorySummary[]; friends: FriendPresence[]; rankings: RankingEntry[]; searchProfiles: FriendSearchResult[] }>
+  seed?: Partial<{
+    profile: UserProfile;
+    activities: TerritorySummary[];
+    friends: FriendPresence[];
+    rankings: RankingEntry[];
+    searchProfiles: FriendSearchResult[];
+    incomingFriendRequests: IncomingFriendRequest[];
+    outgoingFriendRequests: OutgoingFriendRequest[];
+  }>
 ): TerriRepository {
   let profile = seed?.profile ?? initialProfile;
   let activities = seed?.activities ?? initialActivities;
-  const friends = seed?.friends ?? initialFriends;
+  let friends: FriendPresence[] = (seed?.friends ?? initialFriends).map((friend) => ({ ...friend, position: friend.position ? { ...friend.position } : undefined }));
   const rankings = seed?.rankings ?? initialRankings;
   const searchProfiles = (seed?.searchProfiles ?? initialSearchProfiles).map((item) => ({ ...item }));
+  let incomingFriendRequests = (seed?.incomingFriendRequests ?? initialIncomingFriendRequests).map(copyIncomingFriendRequest);
+  let outgoingFriendRequests = (seed?.outgoingFriendRequests ?? initialOutgoingFriendRequests).map(copyOutgoingFriendRequest);
   const pendingRequests = new Map<string, FriendRequestResult>();
   const dailyActivities = new Map<string, DailyActivity>();
   const locationPoints = new Map<string, StoredLocationPoint[]>();
@@ -148,7 +243,7 @@ export function createMockTerriRepository(
     },
     async getFriends() {
       await wait();
-      return friends.map((friend) => ({ ...friend }));
+      return friends.map((friend) => ({ ...friend, position: friend.position ? { ...friend.position } : undefined }));
     },
     async searchFriendsByCode(query) {
       await wait();
@@ -186,7 +281,66 @@ export function createMockTerriRepository(
       };
       pendingRequests.set(candidate.friendCode, request);
       candidate.requestStatus = status;
+      if (status === "pending" && !outgoingFriendRequests.some((item) => item.friendshipId === request.friendshipId)) {
+        const receiver: FriendRequestProfile = {
+          id: candidate.id,
+          friendCode: candidate.friendCode,
+          displayName: candidate.displayName,
+          initials: candidate.initials,
+          color: candidate.color,
+          totalAreaKm2: candidate.totalAreaKm2,
+          avatarUrl: candidate.avatarUrl
+        };
+        outgoingFriendRequests = [
+          {
+            friendshipId: request.friendshipId,
+            receiverUserId: candidate.id,
+            receiver,
+            profile: receiver,
+            status: "pending",
+            requestedAt: new Date().toISOString()
+          },
+          ...outgoingFriendRequests
+        ];
+      }
       return { ...request };
+    },
+    async getIncomingFriendRequests() {
+      await wait();
+      return incomingFriendRequests.map(copyIncomingFriendRequest);
+    },
+    async getOutgoingFriendRequests() {
+      await wait();
+      return outgoingFriendRequests.map(copyOutgoingFriendRequest);
+    },
+    async respondFriendRequest(friendshipId: string, action: FriendRequestAction): Promise<FriendRequestActionResult> {
+      await wait();
+      if (action !== "accept" && action !== "reject") {
+        throw new RepositoryError("未対応の友達申請操作です", "invalid-state");
+      }
+
+      const request = incomingFriendRequests.find((item) => item.friendshipId === friendshipId);
+      if (!request) {
+        if (outgoingFriendRequests.some((item) => item.friendshipId === friendshipId)) {
+          throw new RepositoryError("受信した友達申請だけ操作できます", "permission-denied");
+        }
+        throw new RepositoryError("友達申請が見つかりません", "not-found");
+      }
+
+      incomingFriendRequests = incomingFriendRequests.filter((item) => item.friendshipId !== friendshipId);
+      if (action === "accept" && !friends.some((friend) => friend.id === request.requesterUserId)) {
+        friends = [friendPresenceFromRequestProfile(request.requester), ...friends];
+        const searchProfile = searchProfiles.find((item) => item.id === request.requesterUserId);
+        if (searchProfile) searchProfile.requestStatus = "accepted";
+      }
+
+      return {
+        friendshipId,
+        requesterUserId: request.requesterUserId,
+        receiverUserId: profile.id,
+        action,
+        status: action === "accept" ? "accepted" : "rejected"
+      };
     },
     async getRankings() {
       await wait();

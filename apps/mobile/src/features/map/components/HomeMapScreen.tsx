@@ -103,7 +103,7 @@ export function HomeMapScreen() {
       />
       {overlay === "history" ? <HistorySheet activities={activities} onClose={() => setOverlay("none")} /> : null}
       {overlay === "ranking" ? <RankingSheet rankings={rankings} onFriends={() => setOverlay("friends")} /> : null}
-      {overlay === "friends" ? <FriendsModal friends={friends} onClose={() => setOverlay("none")} /> : null}
+      {overlay === "friends" ? <FriendsModal friends={friends} onFriendsChange={setFriends} onClose={() => setOverlay("none")} /> : null}
     </View>
   );
 }

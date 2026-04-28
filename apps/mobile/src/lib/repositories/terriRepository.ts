@@ -2,10 +2,14 @@ import type {
   DailyActivity,
   FinalizedDailyActivity,
   FriendPresence,
+  FriendRequestAction,
+  FriendRequestActionResult,
   FriendRequestResult,
   FriendSearchResult,
+  IncomingFriendRequest,
   LiveTerritoryResult,
   LocationPointInput,
+  OutgoingFriendRequest,
   RankingEntry,
   TerritoryColor,
   TerritorySummary,
@@ -24,6 +28,9 @@ export interface TerriRepository {
   getFriends(): Promise<FriendPresence[]>;
   searchFriendsByCode(query: string): Promise<FriendSearchResult[]>;
   requestFriendByCode(friendCode: string): Promise<FriendRequestResult>;
+  getIncomingFriendRequests(): Promise<IncomingFriendRequest[]>;
+  getOutgoingFriendRequests(): Promise<OutgoingFriendRequest[]>;
+  respondFriendRequest(friendshipId: string, action: FriendRequestAction): Promise<FriendRequestActionResult>;
   getRankings(): Promise<RankingEntry[]>;
   getActivities(): Promise<TerritorySummary[]>;
   getActivity(activityId: string): Promise<TerritorySummary>;

@@ -17,8 +17,9 @@ const baseFriend: FriendPresence = {
 describe("friend presence helpers", () => {
   test("共有OFFの友達は地図表示対象から外す", () => {
     const hidden = { ...baseFriend, id: "hidden", locationSharingEnabled: false };
+    const noPosition = { ...baseFriend, id: "no-position", position: undefined };
 
-    expect(getVisibleFriendPresences([baseFriend, hidden])).toEqual([baseFriend]);
+    expect(getVisibleFriendPresences([baseFriend, hidden, noPosition])).toEqual([baseFriend]);
     expect(formatPresenceUpdatedAt(hidden, new Date("2026-04-26T03:01:00.000Z"))).toBe("共有OFF");
   });
 

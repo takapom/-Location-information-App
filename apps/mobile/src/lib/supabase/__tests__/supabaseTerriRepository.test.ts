@@ -1,5 +1,5 @@
 import { colors } from "@/theme/tokens";
-import { mapActivitySummary, mapDailyActivityRow, mapFriendSearchRow } from "@/lib/supabase/supabaseTerriRepository";
+import { mapAcceptedFriendRow, mapActivitySummary, mapDailyActivityRow, mapFriendSearchRow, mapIncomingFriendRequestRow } from "@/lib/supabase/supabaseTerriRepository";
 
 const dailyRow = {
   id: "activity-1",
@@ -62,5 +62,49 @@ describe("supabaseTerriRepository mappers", () => {
       totalAreaKm2: 1.2346,
       requestStatus: "pending"
     });
+  });
+
+  test("友達申請RPCの行を受信申請契約へ変換する", () => {
+    expect(
+      mapIncomingFriendRequestRow({
+        friendship_id: "friendship-1",
+        requester_user_id: "friend-1",
+        friend_code: "YUI777",
+        display_name: "Yui",
+        avatar_url: null,
+        territory_color: colors.lavender,
+        total_area_m2: 900000,
+        requested_at: "2026-04-28T00:00:00.000Z"
+      })
+    ).toMatchObject({
+      friendshipId: "friendship-1",
+      requesterUserId: "friend-1",
+      requester: {
+        friendCode: "YUI777",
+        displayName: "Yui",
+        totalAreaKm2: 0.9
+      },
+      status: "pending"
+    });
+  });
+
+  test("承認済み友達RPCの行は位置なしの友達プロフィールとして扱う", () => {
+    const friend = mapAcceptedFriendRow({
+      friend_user_id: "friend-1",
+      friend_code: "YUI777",
+      display_name: "Yui",
+      avatar_url: null,
+      territory_color: colors.lavender,
+      location_sharing_enabled: true,
+      total_area_m2: 900000,
+      accepted_at: "2026-04-28T00:00:00.000Z"
+    });
+
+    expect(friend).toMatchObject({
+      id: "friend-1",
+      displayName: "Yui",
+      totalAreaKm2: 0.9
+    });
+    expect(friend.position).toBeUndefined();
   });
 });

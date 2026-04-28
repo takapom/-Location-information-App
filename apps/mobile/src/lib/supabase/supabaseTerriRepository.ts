@@ -1,11 +1,17 @@
 import type {
   DailyActivity,
   FinalizedDailyActivity,
+  FriendPresence,
+  FriendRequestAction,
+  FriendRequestActionResult,
+  FriendRequestProfile,
   FriendRequestResult,
   FriendRequestStatus,
   FriendSearchResult,
+  IncomingFriendRequest,
   LiveTerritoryResult,
   LocationPointInput,
+  OutgoingFriendRequest,
   RankingEntry,
   TerritoryColor,
   TerritorySummary,
@@ -42,6 +48,47 @@ type FriendRequestRow = {
   friendship_id: string;
   receiver_user_id: string;
   status: "pending" | "accepted";
+};
+
+type IncomingFriendRequestRow = {
+  friendship_id: string;
+  requester_user_id: string;
+  friend_code: string;
+  display_name: string;
+  avatar_url: string | null;
+  territory_color: string;
+  total_area_m2: number;
+  requested_at: string;
+};
+
+type OutgoingFriendRequestRow = {
+  friendship_id: string;
+  receiver_user_id: string;
+  friend_code: string;
+  display_name: string;
+  avatar_url: string | null;
+  territory_color: string;
+  total_area_m2: number;
+  requested_at: string;
+};
+
+type FriendRequestActionRow = {
+  friendship_id: string;
+  requester_user_id: string;
+  receiver_user_id: string;
+  action: FriendRequestAction;
+  status: "accepted" | "rejected";
+};
+
+type AcceptedFriendRow = {
+  friend_user_id: string;
+  friend_code: string;
+  display_name: string;
+  avatar_url: string | null;
+  territory_color: string;
+  location_sharing_enabled: boolean;
+  total_area_m2: number;
+  accepted_at: string;
 };
 
 type DailyActivityRow = {
@@ -161,6 +208,77 @@ export function mapFriendSearchRow(row: FriendSearchRow): FriendSearchResult {
     color: asTerritoryColor(row.territory_color),
     totalAreaKm2: Number((row.total_area_m2 / 1_000_000).toFixed(4)),
     requestStatus: asFriendRequestStatus(row.request_status),
+    avatarUrl: row.avatar_url ?? undefined
+  };
+}
+
+function mapFriendRequestProfile(row: {
+  id: string;
+  friend_code: string;
+  display_name: string;
+  avatar_url: string | null;
+  territory_color: string;
+  total_area_m2: number;
+}): FriendRequestProfile {
+  return {
+    id: row.id,
+    friendCode: row.friend_code,
+    displayName: row.display_name,
+    initials: initialsFromName(row.display_name),
+    color: asTerritoryColor(row.territory_color),
+    totalAreaKm2: Number((row.total_area_m2 / 1_000_000).toFixed(4)),
+    avatarUrl: row.avatar_url ?? undefined
+  };
+}
+
+export function mapIncomingFriendRequestRow(row: IncomingFriendRequestRow): IncomingFriendRequest {
+  const requester = mapFriendRequestProfile({
+    id: row.requester_user_id,
+    friend_code: row.friend_code,
+    display_name: row.display_name,
+    avatar_url: row.avatar_url,
+    territory_color: row.territory_color,
+    total_area_m2: row.total_area_m2
+  });
+  return {
+    friendshipId: row.friendship_id,
+    requesterUserId: row.requester_user_id,
+    requester,
+    profile: requester,
+    status: "pending",
+    requestedAt: row.requested_at
+  };
+}
+
+export function mapOutgoingFriendRequestRow(row: OutgoingFriendRequestRow): OutgoingFriendRequest {
+  const receiver = mapFriendRequestProfile({
+    id: row.receiver_user_id,
+    friend_code: row.friend_code,
+    display_name: row.display_name,
+    avatar_url: row.avatar_url,
+    territory_color: row.territory_color,
+    total_area_m2: row.total_area_m2
+  });
+  return {
+    friendshipId: row.friendship_id,
+    receiverUserId: row.receiver_user_id,
+    receiver,
+    profile: receiver,
+    status: "pending",
+    requestedAt: row.requested_at
+  };
+}
+
+export function mapAcceptedFriendRow(row: AcceptedFriendRow): FriendPresence {
+  return {
+    id: row.friend_user_id,
+    displayName: row.display_name,
+    initials: initialsFromName(row.display_name),
+    color: asTerritoryColor(row.territory_color),
+    totalAreaKm2: Number((row.total_area_m2 / 1_000_000).toFixed(4)),
+    isActive: false,
+    updatedAt: row.accepted_at,
+    locationSharingEnabled: row.location_sharing_enabled,
     avatarUrl: row.avatar_url ?? undefined
   };
 }
@@ -286,7 +404,13 @@ export function createSupabaseTerriRepository(): TerriRepository {
       }
     },
     async getFriends() {
-      return [];
+      try {
+        const { data, error } = await supabase.rpc("list_accepted_friends");
+        if (error) throw error;
+        return ((data ?? []) as AcceptedFriendRow[]).map(mapAcceptedFriendRow);
+      } catch (error) {
+        throw normalizeError(error, "友達一覧を取得できませんでした");
+      }
     },
     async searchFriendsByCode(query) {
       try {
@@ -310,6 +434,41 @@ export function createSupabaseTerriRepository(): TerriRepository {
         };
       } catch (error) {
         throw normalizeError(error, "友達申請を作成できませんでした");
+      }
+    },
+    async getIncomingFriendRequests() {
+      try {
+        const { data, error } = await supabase.rpc("list_incoming_friend_requests");
+        if (error) throw error;
+        return ((data ?? []) as IncomingFriendRequestRow[]).map(mapIncomingFriendRequestRow);
+      } catch (error) {
+        throw normalizeError(error, "受信した友達申請を取得できませんでした");
+      }
+    },
+    async getOutgoingFriendRequests() {
+      try {
+        const { data, error } = await supabase.rpc("list_outgoing_friend_requests");
+        if (error) throw error;
+        return ((data ?? []) as OutgoingFriendRequestRow[]).map(mapOutgoingFriendRequestRow);
+      } catch (error) {
+        throw normalizeError(error, "送信した友達申請を取得できませんでした");
+      }
+    },
+    async respondFriendRequest(friendshipId, action): Promise<FriendRequestActionResult> {
+      try {
+        const { data, error } = await supabase.rpc("respond_friend_request", { p_friendship_id: friendshipId, p_action: action });
+        if (error) throw error;
+        const row = ((data ?? []) as FriendRequestActionRow[])[0];
+        if (!row) throw new RepositoryError("友達申請を更新できませんでした", "network");
+        return {
+          friendshipId: row.friendship_id,
+          requesterUserId: row.requester_user_id,
+          receiverUserId: row.receiver_user_id,
+          action: row.action,
+          status: row.status
+        };
+      } catch (error) {
+        throw normalizeError(error, "友達申請を更新できませんでした");
       }
     },
     async getRankings() {
