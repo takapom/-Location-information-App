@@ -158,6 +158,35 @@ describe("mockTerriRepository", () => {
     );
   });
 
+  test("友達の確定済み陣地をFriendTerritory契約で返す", async () => {
+    const repository = createMockTerriRepository();
+
+    await expect(repository.getFriendTerritories()).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "territory-sakura-final",
+          friendUserId: "sakura",
+          polygon: expect.objectContaining({ type: "Polygon" })
+        })
+      ])
+    );
+  });
+
+  test("友達陣地のGeoJSONは呼び出し元の変更から内部状態を守る", async () => {
+    const repository = createMockTerriRepository();
+    const first = await repository.getFriendTerritories();
+    const firstPolygon = first[0]?.polygon;
+    if (!firstPolygon || firstPolygon.type !== "Polygon") throw new Error("mock fixture must include polygon territory");
+
+    firstPolygon.coordinates[0][0][0] = 0;
+
+    const second = await repository.getFriendTerritories();
+    const secondPolygon = second[0]?.polygon;
+    if (!secondPolygon || secondPolygon.type !== "Polygon") throw new Error("mock fixture must include polygon territory");
+
+    expect(secondPolygon.coordinates[0][0][0]).toBe(139.696);
+  });
+
   test("ユーザーID検索から友達申請をpendingで作成できる", async () => {
     const repository = createMockTerriRepository();
 

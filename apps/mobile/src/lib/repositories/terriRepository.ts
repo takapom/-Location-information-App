@@ -6,6 +6,7 @@ import type {
   FriendRequestActionResult,
   FriendRequestResult,
   FriendSearchResult,
+  FriendTerritory,
   IncomingFriendRequest,
   LiveTerritoryResult,
   LocationPointInput,
@@ -32,6 +33,7 @@ export interface TerriRepository {
   getOutgoingFriendRequests(): Promise<OutgoingFriendRequest[]>;
   respondFriendRequest(friendshipId: string, action: FriendRequestAction): Promise<FriendRequestActionResult>;
   getRankings(): Promise<RankingEntry[]>;
+  getFriendTerritories(): Promise<FriendTerritory[]>;
   getActivities(): Promise<TerritorySummary[]>;
   getActivity(activityId: string): Promise<TerritorySummary>;
   ensureDailyActivity(input: EnsureDailyActivityInput): Promise<DailyActivity>;

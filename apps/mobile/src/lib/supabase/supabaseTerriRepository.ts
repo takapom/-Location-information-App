@@ -8,12 +8,14 @@ import type {
   FriendRequestResult,
   FriendRequestStatus,
   FriendSearchResult,
+  FriendTerritory,
   IncomingFriendRequest,
   LiveTerritoryResult,
   LocationPointInput,
   OutgoingFriendRequest,
   RankingEntry,
   TerritoryColor,
+  TerritoryGeometry,
   TerritorySummary,
   UserProfile
 } from "@terri/shared";
@@ -100,6 +102,16 @@ type RankingRow = {
   delta_area_m2: number;
   rank: number;
   is_current_user: boolean;
+};
+
+type FriendTerritoryRow = {
+  territory_id: string;
+  friend_user_id: string;
+  display_name: string;
+  territory_color: string | null;
+  area_m2: number;
+  calculated_at: string;
+  polygon_geojson: TerritoryGeometry;
 };
 
 type DailyActivityRow = {
@@ -308,6 +320,18 @@ export function mapRankingRow(row: RankingRow): RankingEntry {
   };
 }
 
+export function mapFriendTerritoryRow(row: FriendTerritoryRow): FriendTerritory {
+  return {
+    id: row.territory_id,
+    friendUserId: row.friend_user_id,
+    displayName: row.display_name,
+    color: asTerritoryColor(row.territory_color),
+    areaKm2: Number(((row.area_m2 ?? 0) / 1_000_000).toFixed(4)),
+    calculatedAt: row.calculated_at,
+    polygon: row.polygon_geojson
+  };
+}
+
 function unwrapFunctionResult(data: unknown): FunctionResult {
   if (data && typeof data === "object" && "data" in data) {
     return (data as { data: FunctionResult }).data ?? {};
@@ -504,6 +528,15 @@ export function createSupabaseTerriRepository(): TerriRepository {
         return ((data ?? []) as RankingRow[]).map(mapRankingRow);
       } catch (error) {
         throw normalizeError(error, "ランキングを取得できませんでした");
+      }
+    },
+    async getFriendTerritories() {
+      try {
+        const { data, error } = await supabase.rpc("list_friend_territories");
+        if (error) throw error;
+        return ((data ?? []) as FriendTerritoryRow[]).map(mapFriendTerritoryRow);
+      } catch (error) {
+        throw normalizeError(error, "友達の陣地を取得できませんでした");
       }
     },
     async getActivities() {

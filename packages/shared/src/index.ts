@@ -52,6 +52,18 @@ export type GeoPoint = {
   longitude: number;
 };
 
+export type GeoJsonPolygon = {
+  type: "Polygon";
+  coordinates: number[][][];
+};
+
+export type GeoJsonMultiPolygon = {
+  type: "MultiPolygon";
+  coordinates: number[][][][];
+};
+
+export type TerritoryGeometry = GeoJsonPolygon | GeoJsonMultiPolygon;
+
 export type FriendPresence = {
   id: string;
   displayName: string;
@@ -63,6 +75,16 @@ export type FriendPresence = {
   locationSharingEnabled: boolean;
   position?: GeoPoint;
   avatarUrl?: string;
+};
+
+export type FriendTerritory = {
+  id: string;
+  friendUserId: string;
+  displayName: string;
+  color: TerritoryColor;
+  areaKm2: number;
+  calculatedAt: string;
+  polygon: TerritoryGeometry;
 };
 
 export type FriendRequestStatus = "none" | "pending" | "accepted";

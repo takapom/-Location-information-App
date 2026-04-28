@@ -85,7 +85,8 @@ jest.mock("@/lib/repositories/RepositoryProvider", () => ({
     getIncomingFriendRequests: () => Promise.resolve([]),
     getOutgoingFriendRequests: () => Promise.resolve([]),
     getActivities: () => new Promise(() => undefined),
-    getRankings: () => new Promise(() => undefined)
+    getRankings: () => new Promise(() => undefined),
+    getFriendTerritories: () => new Promise(() => undefined)
   })
 }));
 

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
-import type { FriendPresence, RankingEntry, TerritorySummary, UserProfile } from "@terri/shared";
+import type { FriendPresence, FriendTerritory, RankingEntry, TerritorySummary, UserProfile } from "@terri/shared";
 import { MapSurface } from "@/components/map/MapSurface";
 import { Avatar } from "@/components/ui/Avatar";
 import { useTerriRepository } from "@/lib/repositories/RepositoryProvider";
@@ -23,6 +23,7 @@ export function HomeMapScreen() {
   const liveTerritory = useLiveTerritory();
   const [profile, setProfile] = useState<UserProfile | undefined>();
   const [friends, setFriends] = useState<FriendPresence[]>([]);
+  const [friendTerritories, setFriendTerritories] = useState<FriendTerritory[]>([]);
   const [activities, setActivities] = useState<TerritorySummary[]>([]);
   const [rankings, setRankings] = useState<RankingEntry[]>([]);
   const [overlay, setOverlay] = useState<Overlay>("none");
@@ -31,11 +32,12 @@ export function HomeMapScreen() {
   useEffect(() => {
     let active = true;
 
-    Promise.all([repository.getProfile(), repository.getFriends(), repository.getActivities(), repository.getRankings()])
-      .then(([nextProfile, nextFriends, nextActivities, nextRankings]) => {
+    Promise.all([repository.getProfile(), repository.getFriends(), repository.getActivities(), repository.getRankings(), repository.getFriendTerritories()])
+      .then(([nextProfile, nextFriends, nextActivities, nextRankings, nextFriendTerritories]) => {
         if (!active) return;
         setProfile(nextProfile);
         setFriends(nextFriends);
+        setFriendTerritories(nextFriendTerritories);
         setActivities(nextActivities);
         setRankings(nextRankings);
         setLoadError(undefined);
@@ -84,6 +86,7 @@ export function HomeMapScreen() {
           currentLocation={currentLocation}
           currentUser={currentUserMarker}
           friends={mapFriends}
+          friendTerritories={friendTerritories}
           activeFriendCount={activeFriendCount}
           live={isLive}
           showRoute={isLive}

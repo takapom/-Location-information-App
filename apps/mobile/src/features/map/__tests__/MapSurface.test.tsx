@@ -80,4 +80,38 @@ describe("MapSurface", () => {
     expect(output).toContain("ME");
     expect(output).not.toContain("Shibuya");
   });
+
+  test("友達の確定済み陣地を友達マーカーとは別レイヤーで表示する", () => {
+    let tree: renderer.ReactTestRenderer | undefined;
+    act(() => {
+      tree = renderer.create(
+        <MapSurface
+          friendTerritories={[
+            {
+              id: "territory-sakura-final",
+              friendUserId: "sakura",
+              displayName: "Sakura",
+              color: colors.mint,
+              areaKm2: 0.42,
+              calculatedAt: "2026-04-29T00:00:00.000Z",
+              polygon: {
+                type: "Polygon",
+                coordinates: [
+                  [
+                    [139.699, 35.661],
+                    [139.701, 35.661],
+                    [139.701, 35.659],
+                    [139.699, 35.659],
+                    [139.699, 35.661]
+                  ]
+                ]
+              }
+            }
+          ]}
+        />
+      );
+    });
+
+    expect(tree?.root.findByProps({ testID: "friend-territory-territory-sakura-final" })).toBeTruthy();
+  });
 });

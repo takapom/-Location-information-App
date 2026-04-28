@@ -78,4 +78,20 @@ describe("Supabase SQL contracts", () => {
     expect(sql).toContain("revoke all on function public.list_friend_rankings() from public");
     expect(sql).toContain("grant execute on function public.list_friend_rankings() to authenticated");
   });
+
+  test("friend territories expose only accepted friends final polygons through GeoJSON RPC", () => {
+    const sql = readMigration("0009_friend_territories.sql");
+
+    expect(sql).toContain("list_friend_territories()");
+    expect(sql).toContain("security definer");
+    expect(sql).toContain("v_user_id uuid := auth.uid()");
+    expect(sql).toContain("raise exception 'auth required'");
+    expect(sql).toContain("fs.status = 'accepted'");
+    expect(sql).toContain("fs.requester_user_id = v_user_id or fs.receiver_user_id = v_user_id");
+    expect(sql).toContain("t.state = 'final'");
+    expect(sql).toContain("t.user_id <> v_user_id");
+    expect(sql).toContain("ST_AsGeoJSON(coalesce(t.simplified_polygon, t.polygon))::jsonb");
+    expect(sql).toContain("revoke all on function public.list_friend_territories() from public");
+    expect(sql).toContain("grant execute on function public.list_friend_territories() to authenticated");
+  });
 });

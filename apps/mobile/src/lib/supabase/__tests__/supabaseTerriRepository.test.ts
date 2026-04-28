@@ -3,6 +3,7 @@ import {
   mapAcceptedFriendRow,
   mapActivitySummary,
   mapDailyActivityRow,
+  mapFriendTerritoryRow,
   mapFriendSearchRow,
   mapIncomingFriendRequestRow,
   mapRankingRow
@@ -136,6 +137,40 @@ describe("supabaseTerriRepository mappers", () => {
       deltaKm2: 0,
       color: colors.mint,
       isCurrentUser: false
+    });
+  });
+
+  test("友達陣地RPCの行をFriendTerritory契約へ変換する", () => {
+    const polygon = {
+      type: "Polygon" as const,
+      coordinates: [
+        [
+          [139.7, 35.66],
+          [139.701, 35.66],
+          [139.701, 35.661],
+          [139.7, 35.66]
+        ]
+      ]
+    };
+
+    expect(
+      mapFriendTerritoryRow({
+        territory_id: "territory-1",
+        friend_user_id: "friend-1",
+        display_name: "Aoi",
+        territory_color: "#not-supported",
+        area_m2: 123456,
+        calculated_at: "2026-04-29T00:00:00.000Z",
+        polygon_geojson: polygon
+      })
+    ).toEqual({
+      id: "territory-1",
+      friendUserId: "friend-1",
+      displayName: "Aoi",
+      color: colors.coral,
+      areaKm2: 0.1235,
+      calculatedAt: "2026-04-29T00:00:00.000Z",
+      polygon
     });
   });
 });

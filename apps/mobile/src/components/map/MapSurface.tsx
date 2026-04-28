@@ -1,9 +1,9 @@
 import { memo } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import type { GeoPoint, TerritoryColor } from "@terri/shared";
+import type { FriendTerritory, GeoPoint, TerritoryColor } from "@terri/shared";
 import { Avatar } from "@/components/ui/Avatar";
 import { colors, font } from "@/theme/tokens";
-import { latLngToScreenPoint, type LatLngTuple } from "./mapGeometry";
+import { latLngToScreenPoint, projectTerritoryGeometryBounds, type LatLngTuple } from "./mapGeometry";
 import type { MapFriendMarker, MapSelfMarker } from "./mapTypes";
 
 type TerritoryLayer = {
@@ -18,9 +18,7 @@ type TerritoryLayer = {
 
 const territoryLayers: TerritoryLayer[] = [
   { id: "mine-main", color: colors.coral, x: 8, y: 42, width: 68, height: 32, rotate: "-10deg" },
-  { id: "mine-top", color: colors.coral, x: 45, y: 30, width: 42, height: 28, rotate: "20deg" },
-  { id: "friend-green", color: colors.mint, x: 62, y: 30, width: 45, height: 22, rotate: "-16deg" },
-  { id: "friend-green-2", color: colors.mint, x: 64, y: 70, width: 42, height: 24, rotate: "-7deg" }
+  { id: "mine-top", color: colors.coral, x: 45, y: 30, width: 42, height: 28, rotate: "20deg" }
 ];
 
 const defaultSelfMarker: MapSelfMarker = {
@@ -33,6 +31,7 @@ export const MapSurface = memo(function MapSurface({
   currentLocation,
   currentUser = defaultSelfMarker,
   friends = [],
+  friendTerritories = [],
   activeFriendCount = 0,
   live = false,
   showRoute = false
@@ -41,6 +40,7 @@ export const MapSurface = memo(function MapSurface({
   currentLocation?: GeoPoint;
   currentUser?: MapSelfMarker;
   friends?: MapFriendMarker[];
+  friendTerritories?: FriendTerritory[];
   activeFriendCount?: number;
   live?: boolean;
   showRoute?: boolean;
@@ -67,6 +67,27 @@ export const MapSurface = memo(function MapSurface({
           ]}
         />
       ))}
+      {friendTerritories.map((territory) => {
+        const bounds = projectTerritoryGeometryBounds(territory.polygon, mapCenter);
+
+        return (
+          <View
+            key={territory.id}
+            style={[
+              styles.friendTerritory,
+              {
+                left: `${bounds.left}%`,
+                top: `${bounds.top}%`,
+                width: `${bounds.width}%`,
+                height: `${bounds.height}%`,
+                backgroundColor: `${territory.color}33`,
+                borderColor: territory.color
+              }
+            ]}
+            testID={`friend-territory-${territory.id}`}
+          />
+        );
+      })}
       {showRoute ? <View style={styles.route} /> : null}
       <Text style={styles.place}>{currentLocation ? "現在地" : "Shibuya"}</Text>
       {!live ? (
@@ -154,6 +175,12 @@ const styles = StyleSheet.create({
     position: "absolute",
     borderWidth: 5,
     borderRadius: 18
+  },
+  friendTerritory: {
+    position: "absolute",
+    borderWidth: 3,
+    borderRadius: 10,
+    opacity: 0.82
   },
   route: {
     position: "absolute",

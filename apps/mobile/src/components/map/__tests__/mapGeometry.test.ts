@@ -1,4 +1,4 @@
-import { buildTerritoryPolygons, latLngToScreenPoint, screenPointToLatLng, SHIBUYA_CENTER } from "@/components/map/mapGeometry";
+import { buildTerritoryPolygons, flattenTerritoryCoordinates, latLngToScreenPoint, projectTerritoryGeometryBounds, screenPointToLatLng, SHIBUYA_CENTER } from "@/components/map/mapGeometry";
 import { buildFriendLayerKey } from "@/components/map/mapLayerKeys";
 import { colors } from "@/theme/tokens";
 
@@ -40,5 +40,57 @@ describe("mapGeometry", () => {
     };
 
     expect(buildFriendLayerKey([friend])).toBe(buildFriendLayerKey([{ ...friend }]));
+  });
+
+  test("GeoJSON polygonを地図上の陣地boundsへ投影する", () => {
+    const polygon = {
+      type: "Polygon" as const,
+      coordinates: [
+        [
+          [139.699, 35.661],
+          [139.701, 35.661],
+          [139.701, 35.659],
+          [139.699, 35.659],
+          [139.699, 35.661]
+        ]
+      ]
+    };
+
+    expect(flattenTerritoryCoordinates(polygon)).toHaveLength(5);
+    const bounds = projectTerritoryGeometryBounds(polygon);
+
+    expect(bounds.width).toBeGreaterThan(0);
+    expect(bounds.height).toBeGreaterThan(0);
+  });
+
+  test("空のGeoJSON polygonは描画可能なfallback boundsへ投影する", () => {
+    const polygon = {
+      type: "Polygon" as const,
+      coordinates: []
+    };
+
+    expect(projectTerritoryGeometryBounds(polygon)).toEqual({
+      left: 50,
+      top: 50,
+      width: 4,
+      height: 4
+    });
+  });
+
+  test("地図端の極小GeoJSON polygonも表示範囲内のboundsへ収める", () => {
+    const polygon = {
+      type: "Polygon" as const,
+      coordinates: [
+        [
+          [139.713, 35.648],
+          [139.713, 35.648],
+          [139.713, 35.648]
+        ]
+      ]
+    };
+    const bounds = projectTerritoryGeometryBounds(polygon);
+
+    expect(bounds.left + bounds.width).toBeLessThanOrEqual(100);
+    expect(bounds.top + bounds.height).toBeLessThanOrEqual(100);
   });
 });

@@ -6,6 +6,7 @@ import type {
   FriendRequestProfile,
   FriendRequestResult,
   FriendSearchResult,
+  FriendTerritory,
   IncomingFriendRequest,
   LiveTerritoryResult,
   LocationPointInput,
@@ -110,6 +111,49 @@ const initialRankings: RankingEntry[] = [
   { id: "user-current", rank: 4, name: "ユーザー", initials: "U", areaKm2: 3.2, deltaKm2: 0.3, color: colors.coral, isCurrentUser: true }
 ];
 
+const initialFriendTerritories: FriendTerritory[] = [
+  {
+    id: "territory-sakura-final",
+    friendUserId: "sakura",
+    displayName: "Sakura",
+    color: colors.coral,
+    areaKm2: 0.42,
+    calculatedAt: minutesAgo(180),
+    polygon: {
+      type: "Polygon",
+      coordinates: [
+        [
+          [139.696, 35.6625],
+          [139.6982, 35.6621],
+          [139.698, 35.6604],
+          [139.6958, 35.6609],
+          [139.696, 35.6625]
+        ]
+      ]
+    }
+  },
+  {
+    id: "territory-kenji-final",
+    friendUserId: "kenji",
+    displayName: "Kenji_XYZ",
+    color: colors.sky,
+    areaKm2: 0.68,
+    calculatedAt: minutesAgo(360),
+    polygon: {
+      type: "Polygon",
+      coordinates: [
+        [
+          [139.7022, 35.6612],
+          [139.705, 35.6606],
+          [139.7044, 35.6587],
+          [139.7015, 35.659],
+          [139.7022, 35.6612]
+        ]
+      ]
+    }
+  }
+];
+
 type StoredLocationPoint = LocationPointInput & {
   acceptedForGeometry: boolean;
 };
@@ -148,6 +192,29 @@ function copyOutgoingFriendRequest(request: OutgoingFriendRequest): OutgoingFrie
   };
 }
 
+function copyFriendTerritoryPolygon(polygon: FriendTerritory["polygon"]): FriendTerritory["polygon"] {
+  if (polygon.type === "Polygon") {
+    return {
+      type: "Polygon",
+      coordinates: polygon.coordinates.map((ring) => ring.map((coordinate) => [...coordinate]))
+    };
+  }
+
+  return {
+    type: "MultiPolygon",
+    coordinates: polygon.coordinates.map((territoryPolygon) =>
+      territoryPolygon.map((ring) => ring.map((coordinate) => [...coordinate]))
+    )
+  };
+}
+
+function copyFriendTerritory(territory: FriendTerritory): FriendTerritory {
+  return {
+    ...territory,
+    polygon: copyFriendTerritoryPolygon(territory.polygon)
+  };
+}
+
 function friendPresenceFromRequestProfile(profile: FriendRequestProfile): FriendPresence {
   return {
     id: profile.id,
@@ -169,6 +236,7 @@ export function createMockTerriRepository(
     activities: TerritorySummary[];
     friends: FriendPresence[];
     rankings: RankingEntry[];
+    friendTerritories: FriendTerritory[];
     searchProfiles: FriendSearchResult[];
     incomingFriendRequests: IncomingFriendRequest[];
     outgoingFriendRequests: OutgoingFriendRequest[];
@@ -178,6 +246,7 @@ export function createMockTerriRepository(
   let activities = seed?.activities ?? initialActivities;
   let friends: FriendPresence[] = (seed?.friends ?? initialFriends).map((friend) => ({ ...friend, position: friend.position ? { ...friend.position } : undefined }));
   const rankings = seed?.rankings ?? initialRankings;
+  const friendTerritories = (seed?.friendTerritories ?? initialFriendTerritories).map(copyFriendTerritory);
   const searchProfiles = (seed?.searchProfiles ?? initialSearchProfiles).map((item) => ({ ...item }));
   let incomingFriendRequests = (seed?.incomingFriendRequests ?? initialIncomingFriendRequests).map(copyIncomingFriendRequest);
   let outgoingFriendRequests = (seed?.outgoingFriendRequests ?? initialOutgoingFriendRequests).map(copyOutgoingFriendRequest);
@@ -345,6 +414,10 @@ export function createMockTerriRepository(
     async getRankings() {
       await wait();
       return rankings.map((ranking) => ({ ...ranking }));
+    },
+    async getFriendTerritories() {
+      await wait();
+      return friendTerritories.map(copyFriendTerritory);
     },
     async getActivities() {
       await wait();

@@ -334,7 +334,7 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=<supabase statusで表示されるanon key>
 | 友達一覧 | RPC `list_accepted_friends` + RLS/auth.uid() | accepted friendshipsの公開プロフィール最小項目を返す。ライブ現在地はPresenceから別途扱う |
 | 友達ランキング | RPC `list_friend_rankings` + auth.uid() | 本人とaccepted友達だけを対象に `daily_activities.area_m2` の総面積で順位付けする。増減値は比較スナップショット未実装のためMVPでは0 |
 | 友達現在地 | Realtime Presence/Broadcast | 15秒更新、アクティブ状態 |
-| 友達陣地表示 | `territories` RPC + friendship認可 | 友達の確定済み陣地表示 |
+| 友達陣地表示 | RPC `list_friend_territories` + auth.uid() | accepted友達の `territories(state='final')` だけをGeoJSONで返す。自分のlive previewとは別レイヤーで表示する |
 
 ---
 
