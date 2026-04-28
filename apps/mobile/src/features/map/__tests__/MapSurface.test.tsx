@@ -51,6 +51,8 @@ describe("MapSurface", () => {
 
     expect(output).toContain("map-surface");
     expect(output).toContain("Shibuya");
+    expect(output).toContain("道玄坂");
+    expect(output).toContain("FRIENDS ONLY");
     expect(output).toContain("1 人が今アクティブ 🔥");
   });
 

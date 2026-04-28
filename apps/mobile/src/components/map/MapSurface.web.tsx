@@ -1,17 +1,18 @@
 import { memo, useEffect, useMemo, useRef } from "react";
-import type { GeoPoint } from "@terri/shared";
+import type { FriendTerritory, GeoPoint, TerritoryGeometry } from "@terri/shared";
 import { colors } from "@/theme/tokens";
-import { buildTerritoryPolygons, buildTrackingRoute, SHIBUYA_CENTER, type LatLngTuple } from "./mapGeometry";
+import { shouldAutoCenterMap, toLatLngKey } from "./mapCamera";
+import { buildTerritoryPolygons, buildTrackingRoute, offsetLatLng, SHIBUYA_CENTER, type LatLngTuple } from "./mapGeometry";
 import { buildFriendLayerKey } from "./mapLayerKeys";
 import type { MapFriendMarker, MapSelfMarker } from "./mapTypes";
 
 type LeafletModule = typeof import("leaflet");
 type LeafletMap = import("leaflet").Map;
-type LeafletLayer = import("leaflet").Layer;
 type LeafletLayerGroup = import("leaflet").LayerGroup;
 
 type MapLayerGroups = {
   base: LeafletLayerGroup;
+  friendTerritories: LeafletLayerGroup;
   friends: LeafletLayerGroup;
   live: LeafletLayerGroup;
   user: LeafletLayerGroup;
@@ -28,6 +29,7 @@ export const MapSurface = memo(function MapSurface({
   currentLocation,
   currentUser = defaultSelfMarker,
   friends = [],
+  friendTerritories = [],
   activeFriendCount = 0,
   live = false,
   showRoute = false
@@ -36,6 +38,7 @@ export const MapSurface = memo(function MapSurface({
   currentLocation?: GeoPoint;
   currentUser?: MapSelfMarker;
   friends?: MapFriendMarker[];
+  friendTerritories?: FriendTerritory[];
   activeFriendCount?: number;
   live?: boolean;
   showRoute?: boolean;
@@ -45,9 +48,13 @@ export const MapSurface = memo(function MapSurface({
   const mapRef = useRef<LeafletMap | null>(null);
   const groupsRef = useRef<MapLayerGroups | null>(null);
   const friendsKey = useMemo(() => buildFriendLayerKey(friends), [friends]);
-  const mapCenter = useMemo(() => toLatLngTuple(center), [center]);
-  const latestRenderInputRef = useRef({ mapCenter, currentLocation, currentUser, friends, live, showRoute });
-  latestRenderInputRef.current = { mapCenter, currentLocation, currentUser, friends, live, showRoute };
+  const friendTerritoriesKey = useMemo(() => buildFriendTerritoryLayerKey(friendTerritories), [friendTerritories]);
+  const mapCenter = useMemo(() => toLatLngTuple(center ?? currentLocation), [center, currentLocation]);
+  const mapCenterKey = toLatLngKey(mapCenter);
+  const currentCenterKeyRef = useRef(mapCenterKey);
+  const userMovedMapRef = useRef(false);
+  const latestRenderInputRef = useRef({ mapCenter, currentLocation, currentUser, friends, friendTerritories, live, showRoute });
+  latestRenderInputRef.current = { mapCenter, currentLocation, currentUser, friends, friendTerritories, live, showRoute };
 
   useEffect(() => {
     let cancelled = false;
@@ -67,11 +74,16 @@ export const MapSurface = memo(function MapSurface({
         preferCanvas: true,
         zoomAnimation: true,
         markerZoomAnimation: false,
-        zoomControl: true,
+        zoomControl: false,
         scrollWheelZoom: true,
         dragging: true,
         doubleClickZoom: true,
-        touchZoom: true
+        touchZoom: true,
+        keyboard: true
+      });
+
+      map.on("dragstart zoomstart", () => {
+        userMovedMapRef.current = true;
       });
 
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -84,6 +96,7 @@ export const MapSurface = memo(function MapSurface({
 
       const groups = {
         base: L.layerGroup().addTo(map),
+        friendTerritories: L.layerGroup().addTo(map),
         friends: L.layerGroup().addTo(map),
         live: L.layerGroup().addTo(map),
         user: L.layerGroup().addTo(map)
@@ -92,8 +105,10 @@ export const MapSurface = memo(function MapSurface({
       leafletRef.current = L;
       mapRef.current = map;
       groupsRef.current = groups;
+      currentCenterKeyRef.current = toLatLngKey(latest.mapCenter);
 
       renderBaseLayers(L, groups.base, latest.mapCenter);
+      renderFriendTerritoryLayers(L, groups.friendTerritories, latest.friendTerritories);
       renderFriendLayers(L, groups.friends, latest.friends);
       renderLiveLayers(L, groups.live, latest.live, latest.showRoute, latest.mapCenter);
       renderCurrentLocationLayer(L, groups.user, latest.currentLocation, latest.currentUser);
@@ -122,8 +137,19 @@ export const MapSurface = memo(function MapSurface({
 
   useEffect(() => {
     if (!mapRef.current) return;
+    if (
+      !shouldAutoCenterMap({
+        hasUserMovedMap: userMovedMapRef.current,
+        previousCenterKey: currentCenterKeyRef.current,
+        nextCenterKey: mapCenterKey
+      })
+    ) {
+      return;
+    }
+
+    currentCenterKeyRef.current = mapCenterKey;
     mapRef.current.setView(mapCenter, Math.max(mapRef.current.getZoom(), 16), { animate: true });
-  }, [mapCenter]);
+  }, [mapCenterKey]);
 
   useEffect(() => {
     if (!leafletRef.current || !groupsRef.current) return;
@@ -138,14 +164,21 @@ export const MapSurface = memo(function MapSurface({
 
   useEffect(() => {
     if (!leafletRef.current || !groupsRef.current) return;
+    renderFriendTerritoryLayers(leafletRef.current, groupsRef.current.friendTerritories, friendTerritories);
+  }, [friendTerritories, friendTerritoriesKey]);
+
+  useEffect(() => {
+    if (!leafletRef.current || !groupsRef.current) return;
     renderCurrentLocationLayer(leafletRef.current, groupsRef.current.user, currentLocation, currentUser);
   }, [currentLocation, currentUser]);
 
   return (
     <div style={styles.shell} data-testid="map-surface">
-      <div ref={containerRef} style={styles.map} aria-label="TERRI interactive map" />
+      <div ref={containerRef} style={styles.map} aria-label="TERRI current location map" />
+      <div style={styles.mapWash} />
       <div style={styles.place}>{currentLocation ? "現在地" : "Shibuya"}</div>
       {!live ? <div style={styles.activePill}>{`${activeFriendCount} 人が今アクティブ 🔥`}</div> : null}
+      <div style={styles.privacyPill}>FRIENDS ONLY</div>
     </div>
   );
 });
@@ -157,22 +190,104 @@ function toLatLngTuple(point?: GeoPoint): LatLngTuple {
 function renderBaseLayers(L: LeafletModule, group: LeafletLayerGroup, center: LatLngTuple) {
   group.clearLayers();
   const polygons = buildTerritoryPolygons(center);
+  buildZenlyDistricts(center).forEach((district) => {
+    group.addLayer(
+      L.polygon(district.points, {
+        color: district.color,
+        fillColor: district.color,
+        fillOpacity: 0.12,
+        opacity: 0.3,
+        weight: 2,
+        lineJoin: "round"
+      })
+    );
+  });
   group.addLayer(
     L.polygon(polygons.current, {
       color: colors.coral,
       fillColor: colors.coral,
-      fillOpacity: 0.32,
-      weight: 5
+      fillOpacity: 0.16,
+      opacity: 0.82,
+      weight: 5,
+      lineJoin: "round"
     })
   );
   group.addLayer(
     L.polygon(polygons.friend, {
       color: colors.mint,
       fillColor: colors.mint,
-      fillOpacity: 0.24,
-      weight: 5
+      fillOpacity: 0.14,
+      opacity: 0.72,
+      weight: 4,
+      lineJoin: "round"
     })
   );
+}
+
+function buildZenlyDistricts(center: LatLngTuple) {
+  return [
+    {
+      color: "#FFD95C",
+      points: [
+        offsetLatLng(center, 0.0052, -0.0063),
+        offsetLatLng(center, 0.0044, -0.0028),
+        offsetLatLng(center, 0.0014, -0.0036),
+        offsetLatLng(center, 0.0002, -0.0075),
+        offsetLatLng(center, 0.0029, -0.0092)
+      ]
+    },
+    {
+      color: "#6DCFB0",
+      points: [
+        offsetLatLng(center, 0.0052, 0.0022),
+        offsetLatLng(center, 0.0039, 0.0075),
+        offsetLatLng(center, 0.0007, 0.0083),
+        offsetLatLng(center, -0.0004, 0.0042),
+        offsetLatLng(center, 0.0025, 0.0011)
+      ]
+    },
+    {
+      color: "#B8A0E8",
+      points: [
+        offsetLatLng(center, -0.0013, -0.0055),
+        offsetLatLng(center, -0.0035, -0.0015),
+        offsetLatLng(center, -0.0061, -0.0037),
+        offsetLatLng(center, -0.0054, -0.0088),
+        offsetLatLng(center, -0.0025, -0.0098)
+      ]
+    },
+    {
+      color: "#6BBBEF",
+      points: [
+        offsetLatLng(center, -0.0014, 0.0031),
+        offsetLatLng(center, -0.0036, 0.0086),
+        offsetLatLng(center, -0.0067, 0.0069),
+        offsetLatLng(center, -0.0058, 0.0017),
+        offsetLatLng(center, -0.0032, 0.0001)
+      ]
+    }
+  ];
+}
+
+function renderFriendTerritoryLayers(L: LeafletModule, group: LeafletLayerGroup, friendTerritories: FriendTerritory[]) {
+  group.clearLayers();
+  friendTerritories.forEach((territory) => {
+    const polygons = territoryGeometryToLeafletPolygons(territory.polygon);
+    polygons.forEach((polygon) => {
+      group.addLayer(
+        L.polygon(polygon as import("leaflet").LatLngExpression[][], {
+          color: territory.color,
+          fillColor: territory.color,
+          fillOpacity: 0.12,
+          opacity: 0.72,
+          weight: 3,
+          lineJoin: "round"
+        }).bindPopup(
+          `<strong>${escapeHtml(territory.displayName)}</strong><br>確定済み陣地<br>${territory.areaKm2.toFixed(2)} km²`
+        )
+      );
+    });
+  });
 }
 
 function renderLiveLayers(L: LeafletModule, group: LeafletLayerGroup, live: boolean, showRoute: boolean, center: LatLngTuple) {
@@ -183,9 +298,10 @@ function renderLiveLayers(L: LeafletModule, group: LeafletLayerGroup, live: bool
       L.polygon(polygons.preview, {
         color: colors.coral,
         fillColor: colors.coral,
-        fillOpacity: 0.2,
-        weight: 4,
-        dashArray: "8 8"
+        fillOpacity: 0.08,
+        opacity: 0.72,
+        weight: 3,
+        dashArray: "10 10"
       })
     );
   }
@@ -194,8 +310,8 @@ function renderLiveLayers(L: LeafletModule, group: LeafletLayerGroup, live: bool
     group.addLayer(
       L.polyline(buildTrackingRoute(center), {
         color: colors.coral,
-        weight: 8,
-        opacity: 0.82,
+        weight: 6,
+        opacity: 0.68,
         lineCap: "round"
       })
     );
@@ -221,12 +337,16 @@ function renderCurrentLocationLayer(L: LeafletModule, group: LeafletLayerGroup, 
 function currentLocationMarkerHtml(currentUser: MapSelfMarker) {
   return `
     <div style="
-      width:58px;height:58px;border-radius:29px;background:white;border:6px solid ${currentUser.color};
+      width:66px;height:66px;border-radius:33px;background:white;border:8px solid ${currentUser.color};
       display:flex;align-items:center;justify-content:center;font-weight:900;font-size:22px;color:#050505;
-      box-shadow:0 8px 16px rgba(0,0,0,.24);position:relative;box-sizing:border-box;
+      box-shadow:0 14px 28px rgba(0,0,0,.24);position:relative;box-sizing:border-box;
     ">
-      ${escapeHtml(currentUser.initials)}
-      <div style="position:absolute;right:-2px;bottom:5px;width:18px;height:18px;border-radius:9px;background:#30D36F;border:3px solid white;box-sizing:border-box;"></div>
+      <div style="
+        position:absolute;inset:-18px;border-radius:50%;background:${currentUser.color}26;
+        box-shadow:0 0 0 10px ${currentUser.color}14;
+      "></div>
+      <div style="position:relative;z-index:1;">${escapeHtml(currentUser.initials)}</div>
+      <div style="position:absolute;right:-2px;bottom:5px;width:20px;height:20px;border-radius:10px;background:#30D36F;border:4px solid white;box-sizing:border-box;z-index:2;"></div>
     </div>
   `;
 }
@@ -248,24 +368,43 @@ function renderFriendLayers(L: LeafletModule, group: LeafletLayerGroup, friends:
   });
 }
 
+function buildFriendTerritoryLayerKey(friendTerritories: FriendTerritory[]) {
+  return friendTerritories.map((territory) => `${territory.id}:${territory.calculatedAt}:${territory.areaKm2}`).join("|");
+}
+
+function territoryGeometryToLeafletPolygons(geometry: TerritoryGeometry): LatLngTuple[][][] {
+  if (geometry.type === "Polygon") {
+    return [territoryCoordinatesToLatLng(geometry.coordinates)];
+  }
+
+  return geometry.coordinates.map(territoryCoordinatesToLatLng);
+}
+
+function territoryCoordinatesToLatLng(coordinates: number[][][]): LatLngTuple[][] {
+  return coordinates.map((ring) => ring.map(([longitude, latitude]) => [latitude, longitude] as LatLngTuple));
+}
+
 function friendMarkerHtml(friend: MapFriendMarker) {
   return `
     <div style="
-      width:64px;height:74px;position:relative;filter:drop-shadow(0 8px 12px rgba(0,0,0,.22));
+      width:76px;height:86px;position:relative;filter:drop-shadow(0 12px 18px rgba(0,0,0,.22));
       transform:translateY(-2px);
     ">
       <div style="
-        width:56px;height:56px;border-radius:32px;background:white;border:6px solid ${friend.color};
+        position:absolute;left:-8px;top:-8px;width:76px;height:76px;border-radius:38px;background:${friend.color}24;
+      "></div>
+      <div style="
+        width:62px;height:62px;border-radius:35px;background:white;border:7px solid ${friend.color};
         display:flex;align-items:center;justify-content:center;font-weight:900;font-size:22px;color:#050505;
       ">${escapeHtml(friend.initials)}</div>
       <div style="
-        position:absolute;left:21px;top:52px;width:16px;height:16px;background:white;
-        border-right:6px solid ${friend.color};border-bottom:6px solid ${friend.color};
+        position:absolute;left:23px;top:57px;width:17px;height:17px;background:white;
+        border-right:7px solid ${friend.color};border-bottom:7px solid ${friend.color};
         transform:rotate(45deg);border-radius:2px;
       "></div>
       ${
         friend.isActive
-          ? `<div style="position:absolute;right:0;bottom:14px;width:18px;height:18px;border-radius:9px;background:#30D36F;border:3px solid white;"></div>`
+          ? `<div style="position:absolute;right:4px;bottom:15px;width:20px;height:20px;border-radius:10px;background:#30D36F;border:4px solid white;"></div>`
           : ""
       }
     </div>
@@ -273,25 +412,39 @@ function friendMarkerHtml(friend: MapFriendMarker) {
 }
 
 function injectLeafletCss() {
-  if (document.getElementById(leafletCssId)) return;
-
-  const style = document.createElement("style");
-  style.id = leafletCssId;
-  style.textContent = `
-    .leaflet-container{height:100%;width:100%;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#fff7ea;outline:none;}
+  const cssText = `
+    .leaflet-container{height:100%;width:100%;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#fff0bf;outline:none;touch-action:none;}
     .leaflet-pane,.leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow,.leaflet-tile-container,.leaflet-pane>svg,.leaflet-pane>canvas,.leaflet-zoom-box,.leaflet-image-layer,.leaflet-layer{position:absolute;left:0;top:0;}
     .leaflet-container{overflow:hidden;}
+    .leaflet-map-pane{z-index:0;}
+    .leaflet-tile-pane{z-index:200;}
+    .leaflet-overlay-pane{z-index:430;}
+    .leaflet-shadow-pane{z-index:500;}
+    .leaflet-marker-pane{z-index:650;}
+    .leaflet-tooltip-pane{z-index:650;}
+    .leaflet-popup-pane{z-index:700;}
     .leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow{user-select:none;-webkit-user-drag:none;}
-    .leaflet-tile{filter:saturate(.82) brightness(1.06) contrast(.92);will-change:transform;}
+    .leaflet-tile{filter:saturate(.5) sepia(.12) hue-rotate(-10deg) brightness(1.1) contrast(.82);will-change:transform;}
     .leaflet-marker-icon{will-change:transform;}
+    .leaflet-grab{cursor:grab;}
+    .leaflet-dragging .leaflet-grab{cursor:grabbing;}
     .leaflet-control-container .leaflet-top,.leaflet-control-container .leaflet-bottom{position:absolute;z-index:1000;pointer-events:none;}
     .leaflet-top{top:16px}.leaflet-right{right:16px}.leaflet-bottom{bottom:16px}.leaflet-left{left:16px}
     .leaflet-control{pointer-events:auto;float:left;clear:both;}
-    .leaflet-control-zoom{border:none;border-radius:18px;overflow:hidden;box-shadow:0 8px 18px rgba(0,0,0,.18);}
-    .leaflet-control-zoom a{display:block;width:38px;height:38px;line-height:38px;text-align:center;background:#fff;color:#050505;text-decoration:none;font-size:24px;font-weight:900;}
+    .leaflet-control-zoom{display:none;}
     .leaflet-control-attribution{display:none;}
     .leaflet-popup-content-wrapper{border-radius:18px;box-shadow:0 10px 24px rgba(0,0,0,.22);font-weight:800;}
   `;
+
+  const existingStyle = document.getElementById(leafletCssId);
+  if (existingStyle) {
+    existingStyle.textContent = cssText;
+    return;
+  }
+
+  const style = document.createElement("style");
+  style.id = leafletCssId;
+  style.textContent = cssText;
   document.head.appendChild(style);
 }
 
@@ -318,13 +471,22 @@ const styles: Record<string, React.CSSProperties> = {
   },
   map: {
     position: "absolute",
-    inset: 0
+    inset: 0,
+    zIndex: 0
+  },
+  mapWash: {
+    position: "absolute",
+    inset: 0,
+    zIndex: 120,
+    background: "linear-gradient(180deg, rgba(255,238,184,.18) 0%, rgba(255,255,255,.02) 42%, rgba(184,160,232,.07) 100%)",
+    mixBlendMode: "multiply",
+    pointerEvents: "none"
   },
   place: {
     position: "absolute",
     left: 24,
     top: 86,
-    zIndex: 500,
+    zIndex: 520,
     fontSize: 42,
     lineHeight: "48px",
     fontWeight: 900,
@@ -337,7 +499,7 @@ const styles: Record<string, React.CSSProperties> = {
     top: 156,
     left: "50%",
     transform: "translateX(-50%)",
-    zIndex: 500,
+    zIndex: 520,
     minWidth: 168,
     height: 34,
     padding: "0 14px",
@@ -347,6 +509,24 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     justifyContent: "center",
     fontSize: 14,
+    fontWeight: 900,
+    color: colors.ink,
+    boxShadow: "0 8px 18px rgba(0,0,0,.16)",
+    pointerEvents: "none"
+  },
+  privacyPill: {
+    position: "absolute",
+    right: 18,
+    top: 150,
+    zIndex: 520,
+    height: 32,
+    padding: "0 12px",
+    borderRadius: 16,
+    background: "rgba(255,255,255,.9)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 12,
     fontWeight: 900,
     color: colors.ink,
     boxShadow: "0 8px 18px rgba(0,0,0,.16)",
