@@ -36,7 +36,7 @@ export function RankingSheet({ rankings, onFriends }: RankingSheetProps) {
           <Pill tone="mint">↑{entry.deltaKm2.toFixed(1)}</Pill>
         </View>
       ))}
-      <PrimaryButton onPress={onFriends}>👥 友達を追加</PrimaryButton>
+      <PrimaryButton onPress={onFriends} testID="ranking-friends-button">👥 友達を追加</PrimaryButton>
     </BottomSheet>
   );
 }

@@ -19,14 +19,14 @@ function getCaptureDotColor(status: LiveTerritoryStatus) {
 export function StartDock({ captureLabel, captureStatus, onHistory, onRanking }: StartDockProps) {
   return (
     <View style={styles.startDock}>
-      <TouchableOpacity onPress={onHistory} style={styles.dockSide}>
+      <TouchableOpacity accessibilityLabel="履歴を開く" accessibilityRole="button" onPress={onHistory} style={styles.dockSide} testID="history-button">
         <Text style={styles.dockIcon}>◷</Text>
       </TouchableOpacity>
       <View style={styles.captureStatus} testID="territory-capture-status">
         <Text style={[styles.captureStatusDot, { color: getCaptureDotColor(captureStatus) }]}>●</Text>
         <Text numberOfLines={1} style={styles.captureStatusText}>{captureLabel}</Text>
       </View>
-      <TouchableOpacity onPress={onRanking} style={styles.dockSide}>
+      <TouchableOpacity accessibilityLabel="ランキングを開く" accessibilityRole="button" onPress={onRanking} style={styles.dockSide} testID="ranking-button">
         <Text style={styles.dockIcon}>🏆</Text>
       </TouchableOpacity>
     </View>

@@ -6,10 +6,17 @@ export function PrimaryButton({
   children,
   disabled,
   onPress,
+  testID,
   variant = "filled"
-}: PropsWithChildren<{ disabled?: boolean; onPress?: () => void; variant?: "filled" | "outline" | "dark" | "line" }>) {
+}: PropsWithChildren<{ disabled?: boolean; onPress?: () => void; testID?: string; variant?: "filled" | "outline" | "dark" | "line" }>) {
   return (
-    <Pressable disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.button, styles[variant], pressed && !disabled && styles.pressed, disabled && styles.disabled]}>
+    <Pressable
+      accessibilityRole="button"
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [styles.button, styles[variant], pressed && !disabled && styles.pressed, disabled && styles.disabled]}
+      testID={testID}
+    >
       <Text style={[styles.text, variant === "outline" || variant === "line" ? styles.outlineText : styles.filledText, disabled && styles.disabledText]}>{children}</Text>
     </Pressable>
   );

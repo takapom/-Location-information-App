@@ -1,3 +1,4 @@
+import * as Clipboard from "expo-clipboard";
 import { Text, TouchableOpacity, View } from "react-native";
 import type { FriendPresence } from "@terri/shared";
 import { Avatar } from "@/components/ui/Avatar";
@@ -12,11 +13,16 @@ type FriendsModalProps = {
 };
 
 export function FriendsModal({ friends, onClose }: FriendsModalProps) {
+  const inviteUrl = "https://app.link/share...xyz";
+  const copyInviteUrl = () => {
+    void Clipboard.setStringAsync(inviteUrl);
+  };
+
   return (
     <View style={styles.modal}>
       <View style={styles.decorCoral} />
       <View style={styles.decorMint} />
-      <TouchableOpacity accessibilityLabel="友達画面を閉じる" accessibilityRole="button" hitSlop={12} onPress={onClose} style={styles.modalClose}>
+      <TouchableOpacity accessibilityLabel="友達画面を閉じる" accessibilityRole="button" hitSlop={12} onPress={onClose} style={styles.modalClose} testID="friends-close-button">
         <Text style={styles.modalCloseText}>×</Text>
       </TouchableOpacity>
       <Text style={styles.modalTitle}>友達</Text>
@@ -41,10 +47,12 @@ export function FriendsModal({ friends, onClose }: FriendsModalProps) {
       ))}
       <Text style={styles.inviteTitle}>招待リンク</Text>
       <View style={styles.inviteBox}>
-        <Text style={styles.inviteUrl}>https://app.link/share...xyz</Text>
-        <Text style={styles.copyButton}>コピー</Text>
+        <Text style={styles.inviteUrl}>{inviteUrl}</Text>
+        <TouchableOpacity accessibilityLabel="招待リンクをコピー" accessibilityRole="button" onPress={copyInviteUrl} style={styles.copyButton} testID="invite-copy-button">
+          <Text style={styles.copyButtonText}>コピー</Text>
+        </TouchableOpacity>
       </View>
-      <PrimaryButton onPress={onClose}>👋 友達を追加</PrimaryButton>
+      <PrimaryButton onPress={onClose} testID="friends-add-button">👋 友達を追加</PrimaryButton>
     </View>
   );
 }

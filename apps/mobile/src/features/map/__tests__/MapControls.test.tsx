@@ -1,0 +1,169 @@
+import renderer, { act } from "react-test-renderer";
+import { colors } from "@/theme/tokens";
+import { FriendsModal } from "@/features/map/components/FriendsModal";
+import { HistorySheet } from "@/features/map/components/HistorySheet";
+import { LiveTerritoryPanel } from "@/features/map/components/LiveTerritoryPanel";
+import { RankingSheet } from "@/features/map/components/RankingSheet";
+import { StartDock } from "@/features/map/components/StartDock";
+
+const mockPush = jest.fn();
+const mockSetStringAsync = jest.fn<Promise<void>, [string]>(() => Promise.resolve());
+
+jest.mock("expo-router", () => ({
+  router: {
+    push: (path: string) => mockPush(path)
+  }
+}));
+
+jest.mock("expo-clipboard", () => ({
+  setStringAsync: (value: string) => mockSetStringAsync(value)
+}));
+
+jest.mock("react-native", () => {
+  const React = require("react");
+  return {
+    Linking: {
+      openSettings: jest.fn(() => Promise.resolve())
+    },
+    Platform: {
+      OS: "web"
+    },
+    Pressable: ({ children, onPress, style, ...props }: { children?: React.ReactNode; onPress?: () => void; style?: unknown }) =>
+      React.createElement("Pressable", { ...props, onPress, style: typeof style === "function" ? style({ pressed: false }) : style }, children),
+    Text: ({ children, ...props }: { children?: React.ReactNode }) => React.createElement("Text", props, children),
+    TouchableOpacity: ({ children, onPress, ...props }: { children?: React.ReactNode; onPress?: () => void }) =>
+      React.createElement("TouchableOpacity", { ...props, onPress }, children),
+    View: ({ children, ...props }: { children?: React.ReactNode }) => React.createElement("View", props, children),
+    StyleSheet: {
+      create: (styles: unknown) => styles,
+      absoluteFillObject: {
+        position: "absolute",
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0
+      }
+    }
+  };
+});
+
+const activity = {
+  id: "today",
+  title: "今日",
+  areaKm2: 1.2,
+  distanceKm: 3.4,
+  duration: "進行中",
+  color: colors.coral,
+  createdAtLabel: "今日"
+};
+
+const ranking = {
+  id: "me",
+  rank: 1,
+  name: "ユーザー",
+  initials: "U",
+  areaKm2: 2.3,
+  deltaKm2: 0.4,
+  color: colors.coral,
+  isCurrentUser: true
+};
+
+const friend = {
+  id: "sakura",
+  displayName: "Sakura",
+  initials: "S",
+  color: colors.mint,
+  totalAreaKm2: 1.5,
+  isActive: true,
+  updatedAt: "2026-04-28T00:00:00.000Z",
+  locationSharingEnabled: true,
+  position: { latitude: 35.66, longitude: 139.7 }
+};
+
+describe("map controls", () => {
+  beforeEach(() => {
+    mockPush.mockClear();
+    mockSetStringAsync.mockClear();
+  });
+
+  test("下部ドックの履歴・ランキングボタンが押下できる", () => {
+    const onHistory = jest.fn();
+    const onRanking = jest.fn();
+    let tree: renderer.ReactTestRenderer | undefined;
+    act(() => {
+      tree = renderer.create(<StartDock captureLabel="領土化ON" captureStatus="live" onHistory={onHistory} onRanking={onRanking} />);
+    });
+
+    act(() => {
+      tree?.root.findByProps({ testID: "history-button" }).props.onPress();
+      tree?.root.findByProps({ testID: "ranking-button" }).props.onPress();
+    });
+
+    expect(onHistory).toHaveBeenCalledTimes(1);
+    expect(onRanking).toHaveBeenCalledTimes(1);
+  });
+
+  test("位置情報案内と同期ボタンが押下できる", () => {
+    const onRequestPermission = jest.fn();
+    const onSync = jest.fn();
+    let tree: renderer.ReactTestRenderer | undefined;
+    act(() => {
+      tree = renderer.create(<LiveTerritoryPanel stats={{ elapsed: "確認中", distanceKm: 0, previewAreaKm2: 0 }} status="permissionDenied" onRequestPermission={onRequestPermission} onSync={onSync} />);
+    });
+
+    act(() => {
+      tree?.root.findByProps({ testID: "location-settings-button" }).props.onPress();
+      tree?.root.findByProps({ testID: "sync-territory-button" }).props.onPress();
+    });
+
+    expect(onRequestPermission).toHaveBeenCalledTimes(1);
+    expect(onSync).toHaveBeenCalledTimes(1);
+  });
+
+  test("履歴シートの閉じる・活動カードが押下できる", () => {
+    const onClose = jest.fn();
+    let tree: renderer.ReactTestRenderer | undefined;
+    act(() => {
+      tree = renderer.create(<HistorySheet activities={[activity]} onClose={onClose} />);
+    });
+
+    act(() => {
+      tree?.root.findByProps({ testID: "history-close-button" }).props.onPress();
+      tree?.root.findByProps({ testID: "activity-card-today" }).props.onPress();
+    });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(mockPush).toHaveBeenCalledWith("/activity/today");
+  });
+
+  test("ランキングから友達画面を開ける", () => {
+    const onFriends = jest.fn();
+    let tree: renderer.ReactTestRenderer | undefined;
+    act(() => {
+      tree = renderer.create(<RankingSheet rankings={[ranking]} onFriends={onFriends} />);
+    });
+
+    act(() => {
+      tree?.root.findByProps({ testID: "ranking-friends-button" }).props.onPress();
+    });
+
+    expect(onFriends).toHaveBeenCalledTimes(1);
+  });
+
+  test("友達モーダルの閉じる・コピー・追加ボタンが押下できる", () => {
+    const onClose = jest.fn();
+    let tree: renderer.ReactTestRenderer | undefined;
+    act(() => {
+      tree = renderer.create(<FriendsModal friends={[friend]} onClose={onClose} />);
+    });
+
+    act(() => {
+      tree?.root.findByProps({ testID: "friends-close-button" }).props.onPress();
+      tree?.root.findByProps({ testID: "invite-copy-button" }).props.onPress();
+      tree?.root.findByProps({ testID: "friends-add-button" }).props.onPress();
+    });
+
+    expect(onClose).toHaveBeenCalledTimes(2);
+    expect(mockSetStringAsync).toHaveBeenCalledWith("https://app.link/share...xyz");
+  });
+});

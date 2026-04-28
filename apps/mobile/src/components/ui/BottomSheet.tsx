@@ -17,13 +17,15 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    zIndex: 1800,
     paddingHorizontal: 22,
     paddingTop: 24,
     paddingBottom: 28,
     borderTopLeftRadius: 34,
     borderTopRightRadius: 34,
     backgroundColor: colors.surface,
-    ...shadow
+    ...shadow,
+    elevation: 18
   },
   handle: {
     position: "absolute",

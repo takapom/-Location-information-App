@@ -6,10 +6,16 @@ export const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.mapBase
   },
+  mapLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0
+  },
   profileButton: {
     position: "absolute",
     right: 22,
-    top: 82
+    top: 82,
+    zIndex: 1200,
+    elevation: 12
   },
   errorBanner: {
     position: "absolute",
@@ -24,7 +30,9 @@ export const styles = StyleSheet.create({
     fontWeight: font.heavy,
     paddingHorizontal: 18,
     paddingVertical: 12,
-    ...shadow
+    zIndex: 1300,
+    ...shadow,
+    elevation: 13
   },
   liveErrorBanner: {
     position: "absolute",
@@ -39,7 +47,9 @@ export const styles = StyleSheet.create({
     fontWeight: font.heavy,
     paddingHorizontal: 18,
     paddingVertical: 11,
-    ...shadow
+    zIndex: 1300,
+    ...shadow,
+    elevation: 13
   },
   startDock: {
     position: "absolute",
@@ -53,7 +63,9 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 12,
-    ...shadow
+    zIndex: 1200,
+    ...shadow,
+    elevation: 12
   },
   dockSide: {
     width: 44,
@@ -98,7 +110,9 @@ export const styles = StyleSheet.create({
     position: "absolute",
     left: 34,
     right: 34,
-    bottom: 92
+    bottom: 92,
+    zIndex: 1200,
+    elevation: 12
   },
   locationPrompt: {
     minHeight: 64,
@@ -479,6 +493,11 @@ export const styles = StyleSheet.create({
   },
   copyButton: {
     paddingHorizontal: 18,
+    alignSelf: "stretch",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  copyButtonText: {
     fontSize: 20,
     fontWeight: font.heavy,
     color: colors.ink

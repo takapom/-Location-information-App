@@ -78,16 +78,18 @@ export function HomeMapScreen() {
 
   return (
     <View style={styles.screen}>
-      <MapSurface
-        center={currentLocation}
-        currentLocation={currentLocation}
-        currentUser={currentUserMarker}
-        friends={mapFriends}
-        activeFriendCount={activeFriendCount}
-        live={isLive}
-        showRoute={isLive}
-      />
-      <TouchableOpacity style={styles.profileButton} onPress={() => router.push("/profile")}>
+      <View style={styles.mapLayer}>
+        <MapSurface
+          center={currentLocation}
+          currentLocation={currentLocation}
+          currentUser={currentUserMarker}
+          friends={mapFriends}
+          activeFriendCount={activeFriendCount}
+          live={isLive}
+          showRoute={isLive}
+        />
+      </View>
+      <TouchableOpacity accessibilityRole="button" style={styles.profileButton} onPress={() => router.push("/profile")} testID="profile-button">
         <Avatar initials={profile?.initials ?? "U"} color={profile?.territoryColor ?? colors.coral} size={48} active />
       </TouchableOpacity>
       {loadError ? <Text style={styles.errorBanner}>{loadError}</Text> : null}

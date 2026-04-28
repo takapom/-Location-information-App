@@ -18,4 +18,11 @@ describe("HomeMapScreen layout", () => {
     expect(styles.modal.zIndex).toBeGreaterThan(1000);
     expect(styles.modalClose.zIndex).toBeGreaterThan(styles.modal.zIndex);
   });
+
+  test("操作UIは地図レイヤーより前面でタップを受け取る", () => {
+    expect(styles.mapLayer.zIndex).toBe(0);
+    expect(styles.profileButton.zIndex).toBeGreaterThan(styles.mapLayer.zIndex);
+    expect(styles.livePanel.zIndex).toBeGreaterThan(styles.mapLayer.zIndex);
+    expect(styles.startDock.zIndex).toBeGreaterThan(styles.mapLayer.zIndex);
+  });
 });

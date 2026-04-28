@@ -30,7 +30,7 @@ export function LiveTerritoryPanel({ stats, status, onRequestPermission, onSync 
             <Text style={styles.locationPromptTitle}>位置情報をONにしてください</Text>
             <Text style={styles.locationPromptBody}>ONにすると、移動した場所が領土になります</Text>
           </View>
-          <TouchableOpacity onPress={requestPermission} style={styles.locationPromptButton}>
+          <TouchableOpacity accessibilityRole="button" onPress={requestPermission} style={styles.locationPromptButton} testID="location-settings-button">
             <Text style={styles.locationPromptButtonText}>{Platform.OS === "web" ? "再確認" : "設定"}</Text>
           </TouchableOpacity>
         </View>
@@ -41,7 +41,7 @@ export function LiveTerritoryPanel({ stats, status, onRequestPermission, onSync 
         <Stat label="距離" value={`${stats.distanceKm.toFixed(1)} km`} />
         <Divider />
         <Stat label="面積" value={`${stats.previewAreaKm2.toFixed(2)} km²`} />
-        <TouchableOpacity disabled={syncing} onPress={onSync} style={[styles.syncButton, syncing && { opacity: 0.7 }]}>
+        <TouchableOpacity accessibilityRole="button" disabled={syncing} onPress={onSync} style={[styles.syncButton, syncing && { opacity: 0.7 }]} testID="sync-territory-button">
           <Text style={styles.syncText}>{syncing ? "同期中" : "同期"}</Text>
         </TouchableOpacity>
       </View>

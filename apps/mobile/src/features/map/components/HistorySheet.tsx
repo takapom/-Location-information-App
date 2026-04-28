@@ -15,12 +15,12 @@ export function HistorySheet({ activities, onClose }: HistorySheetProps) {
     <BottomSheet height="56%">
       <View style={styles.sheetHeader}>
         <Text style={styles.sheetTitle}>履歴</Text>
-        <TouchableOpacity onPress={onClose} style={styles.closeCircle}>
+        <TouchableOpacity accessibilityLabel="履歴を閉じる" accessibilityRole="button" onPress={onClose} style={styles.closeCircle} testID="history-close-button">
           <Text style={styles.closeText}>×</Text>
         </TouchableOpacity>
       </View>
       {activities.map((activity) => (
-        <TouchableOpacity key={activity.id} onPress={() => router.push(`/activity/${activity.id}`)} style={styles.historyCard}>
+        <TouchableOpacity accessibilityRole="button" key={activity.id} onPress={() => router.push(`/activity/${activity.id}`)} style={styles.historyCard} testID={`activity-card-${activity.id}`}>
           <View style={[styles.mapThumb, { borderColor: activity.color }]}>
             <View style={[styles.thumbTerritory, { backgroundColor: `${activity.color}66`, borderColor: activity.color }]} />
           </View>
