@@ -1,5 +1,5 @@
 import { colors } from "@/theme/tokens";
-import { mapActivitySummary, mapDailyActivityRow } from "@/lib/supabase/supabaseTerriRepository";
+import { mapActivitySummary, mapDailyActivityRow, mapFriendSearchRow } from "@/lib/supabase/supabaseTerriRepository";
 
 const dailyRow = {
   id: "activity-1",
@@ -39,6 +39,28 @@ describe("supabaseTerriRepository mappers", () => {
       distanceKm: 1.23,
       duration: "12:34",
       color: colors.mint
+    });
+  });
+
+  test("友達検索RPCの行を公開プロフィール契約へ変換する", () => {
+    expect(
+      mapFriendSearchRow({
+        id: "friend-1",
+        friend_code: "RIKU2026",
+        display_name: "Riku",
+        avatar_url: null,
+        territory_color: colors.sky,
+        total_area_m2: 1234567,
+        request_status: "pending"
+      })
+    ).toMatchObject({
+      id: "friend-1",
+      friendCode: "RIKU2026",
+      displayName: "Riku",
+      initials: "RI",
+      color: colors.sky,
+      totalAreaKm2: 1.2346,
+      requestStatus: "pending"
     });
   });
 });

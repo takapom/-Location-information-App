@@ -7,7 +7,7 @@ export type CurrentLocation = GeoPoint & {
   recordedAt: string;
 };
 
-type LocationObjectLike = {
+export type LocationObjectLike = {
   coords: {
     latitude: number;
     longitude: number;
@@ -28,6 +28,10 @@ const expoLocationReaderAdapter: LocationReaderAdapter = {
 export async function getCurrentTerritoryLocation(adapter: LocationReaderAdapter = expoLocationReaderAdapter): Promise<CurrentLocation> {
   const position = await adapter.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
 
+  return mapLocationObjectToCurrentLocation(position);
+}
+
+export function mapLocationObjectToCurrentLocation(position: LocationObjectLike): CurrentLocation {
   return {
     latitude: position.coords.latitude,
     longitude: position.coords.longitude,

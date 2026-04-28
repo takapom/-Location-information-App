@@ -28,6 +28,7 @@ jest.mock("react-native", () => {
     Pressable: ({ children, onPress, style, ...props }: { children?: React.ReactNode; onPress?: () => void; style?: unknown }) =>
       React.createElement("Pressable", { ...props, onPress, style: typeof style === "function" ? style({ pressed: false }) : style }, children),
     Text: ({ children, ...props }: { children?: React.ReactNode }) => React.createElement("Text", props, children),
+    TextInput: (props: unknown) => React.createElement("TextInput", props),
     TouchableOpacity: ({ children, onPress, ...props }: { children?: React.ReactNode; onPress?: () => void }) =>
       React.createElement("TouchableOpacity", { ...props, onPress }, children),
     View: ({ children, ...props }: { children?: React.ReactNode }) => React.createElement("View", props, children),

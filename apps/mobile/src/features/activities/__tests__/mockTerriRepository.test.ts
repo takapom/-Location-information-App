@@ -147,6 +147,28 @@ describe("mockTerriRepository", () => {
     await expect(repository.getActivity("today")).resolves.toMatchObject({ id: "today", distanceKm: 5.2 });
   });
 
+  test("ユーザーID検索から友達申請をpendingで作成できる", async () => {
+    const repository = createMockTerriRepository();
+
+    await expect(repository.searchFriendsByCode("RI")).resolves.toEqual([
+      expect.objectContaining({ friendCode: "RIKU2026", requestStatus: "none" })
+    ]);
+
+    await expect(repository.requestFriendByCode("RIKU2026")).resolves.toMatchObject({
+      receiverUserId: "riku",
+      status: "pending"
+    });
+    await expect(repository.searchFriendsByCode("RI")).resolves.toEqual([
+      expect.objectContaining({ friendCode: "RIKU2026", requestStatus: "pending" })
+    ]);
+  });
+
+  test("存在しないユーザーIDへの友達申請はnot-foundを返す", async () => {
+    const repository = createMockTerriRepository();
+
+    await expect(repository.requestFriendByCode("MISSING")).rejects.toEqual(new RepositoryError("ユーザーが見つかりません", "not-found"));
+  });
+
   test("factoryごとに状態が分離される", async () => {
     const first = createMockTerriRepository();
     const second = createMockTerriRepository();

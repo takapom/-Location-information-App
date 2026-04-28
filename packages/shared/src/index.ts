@@ -65,6 +65,25 @@ export type FriendPresence = {
   avatarUrl?: string;
 };
 
+export type FriendRequestStatus = "none" | "pending" | "accepted";
+
+export type FriendSearchResult = {
+  id: string;
+  friendCode: string;
+  displayName: string;
+  initials: string;
+  color: TerritoryColor;
+  totalAreaKm2: number;
+  requestStatus: FriendRequestStatus;
+  avatarUrl?: string;
+};
+
+export type FriendRequestResult = {
+  friendshipId: string;
+  receiverUserId: string;
+  status: "pending" | "accepted";
+};
+
 export type RankingEntry = {
   id: string;
   rank: number;

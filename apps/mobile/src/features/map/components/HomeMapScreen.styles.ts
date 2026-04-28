@@ -433,14 +433,65 @@ export const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 24
   },
-  searchText: {
+  searchInput: {
+    flex: 1,
+    minWidth: 0,
     fontSize: 21,
-    color: "#9A9698",
-    fontWeight: font.bold
+    color: colors.ink,
+    fontWeight: font.bold,
+    paddingVertical: 0
+  },
+  searchAction: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center"
   },
   searchIcon: {
     fontSize: 38,
     color: colors.muted
+  },
+  friendSearchMessage: {
+    marginTop: 12,
+    fontSize: 15,
+    fontWeight: font.bold,
+    color: colors.muted
+  },
+  friendSearchRow: {
+    minHeight: 78,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line
+  },
+  friendSearchName: {
+    fontSize: 20,
+    fontWeight: font.heavy,
+    color: colors.ink
+  },
+  friendSearchCode: {
+    marginTop: 2,
+    fontSize: 13,
+    fontWeight: font.bold,
+    color: colors.muted
+  },
+  friendRequestButton: {
+    minWidth: 78,
+    height: 38,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.coral,
+    paddingHorizontal: 14
+  },
+  friendRequestButtonDisabled: {
+    backgroundColor: "#EFEFEF"
+  },
+  friendRequestButtonText: {
+    fontSize: 14,
+    fontWeight: font.heavy,
+    color: colors.ink
   },
   friendRow: {
     minHeight: 116,

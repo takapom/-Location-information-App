@@ -1,6 +1,9 @@
 import type {
   DailyActivity,
   FinalizedDailyActivity,
+  FriendRequestResult,
+  FriendRequestStatus,
+  FriendSearchResult,
   LiveTerritoryResult,
   LocationPointInput,
   RankingEntry,
@@ -23,6 +26,22 @@ type ProfileRow = {
   territory_capture_enabled: boolean;
   background_tracking_enabled: boolean;
   notifications_enabled: boolean;
+};
+
+type FriendSearchRow = {
+  id: string;
+  friend_code: string;
+  display_name: string;
+  avatar_url: string | null;
+  territory_color: string;
+  total_area_m2: number;
+  request_status: string;
+};
+
+type FriendRequestRow = {
+  friendship_id: string;
+  receiver_user_id: string;
+  status: "pending" | "accepted";
 };
 
 type DailyActivityRow = {
@@ -58,7 +77,7 @@ function normalizeError(error: unknown, fallback: string): RepositoryError {
   const lower = message.toLowerCase();
   if (lower.includes("auth") || lower.includes("permission") || lower.includes("jwt")) return new RepositoryError(message, "permission-denied");
   if (lower.includes("not found") || lower.includes("not-found") || lower.includes("p0002")) return new RepositoryError(message, "not-found");
-  if (lower.includes("finalized") || lower.includes("not syncable")) return new RepositoryError(message, "invalid-state");
+  if (lower.includes("finalized") || lower.includes("not syncable") || lower.includes("yourself")) return new RepositoryError(message, "invalid-state");
   return new RepositoryError(message, "network");
 }
 
@@ -126,6 +145,23 @@ function mapProfileRow(row: ProfileRow, totals: { areaKm2: number; distanceKm: n
     backgroundTrackingEnabled: row.background_tracking_enabled,
     locationSharingEnabled: row.location_sharing_enabled,
     territoryCaptureEnabled: row.territory_capture_enabled
+  };
+}
+
+function asFriendRequestStatus(value: string): FriendRequestStatus {
+  return value === "pending" || value === "accepted" ? value : "none";
+}
+
+export function mapFriendSearchRow(row: FriendSearchRow): FriendSearchResult {
+  return {
+    id: row.id,
+    friendCode: row.friend_code,
+    displayName: row.display_name,
+    initials: initialsFromName(row.display_name),
+    color: asTerritoryColor(row.territory_color),
+    totalAreaKm2: Number((row.total_area_m2 / 1_000_000).toFixed(4)),
+    requestStatus: asFriendRequestStatus(row.request_status),
+    avatarUrl: row.avatar_url ?? undefined
   };
 }
 
@@ -251,6 +287,30 @@ export function createSupabaseTerriRepository(): TerriRepository {
     },
     async getFriends() {
       return [];
+    },
+    async searchFriendsByCode(query) {
+      try {
+        const { data, error } = await supabase.rpc("search_profiles_by_friend_code", { p_query: query });
+        if (error) throw error;
+        return ((data ?? []) as FriendSearchRow[]).map(mapFriendSearchRow);
+      } catch (error) {
+        throw normalizeError(error, "友達を検索できませんでした");
+      }
+    },
+    async requestFriendByCode(friendCode): Promise<FriendRequestResult> {
+      try {
+        const { data, error } = await supabase.rpc("request_friend_by_code", { p_friend_code: friendCode });
+        if (error) throw error;
+        const row = ((data ?? []) as FriendRequestRow[])[0];
+        if (!row) throw new RepositoryError("友達申請を作成できませんでした", "network");
+        return {
+          friendshipId: row.friendship_id,
+          receiverUserId: row.receiver_user_id,
+          status: row.status
+        };
+      } catch (error) {
+        throw normalizeError(error, "友達申請を作成できませんでした");
+      }
     },
     async getRankings() {
       const profile = await ensureProfile();

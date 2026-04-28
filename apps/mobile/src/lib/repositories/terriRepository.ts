@@ -2,6 +2,8 @@ import type {
   DailyActivity,
   FinalizedDailyActivity,
   FriendPresence,
+  FriendRequestResult,
+  FriendSearchResult,
   LiveTerritoryResult,
   LocationPointInput,
   RankingEntry,
@@ -20,6 +22,8 @@ export interface TerriRepository {
   updateProfile(input: Partial<Pick<UserProfile, "notificationsEnabled" | "backgroundTrackingEnabled" | "locationSharingEnabled" | "territoryCaptureEnabled">>): Promise<UserProfile>;
   updateTerritoryColor(color: TerritoryColor): Promise<UserProfile>;
   getFriends(): Promise<FriendPresence[]>;
+  searchFriendsByCode(query: string): Promise<FriendSearchResult[]>;
+  requestFriendByCode(friendCode: string): Promise<FriendRequestResult>;
   getRankings(): Promise<RankingEntry[]>;
   getActivities(): Promise<TerritorySummary[]>;
   getActivity(activityId: string): Promise<TerritorySummary>;

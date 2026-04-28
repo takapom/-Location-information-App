@@ -1,6 +1,8 @@
 import type {
   DailyActivity,
   FriendPresence,
+  FriendRequestResult,
+  FriendSearchResult,
   LiveTerritoryResult,
   LocationPointInput,
   RankingEntry,
@@ -44,6 +46,13 @@ const initialFriends: FriendPresence[] = [
   { id: "mio", displayName: "Mio", initials: "M", color: colors.lavender, totalAreaKm2: 2.4, isActive: false, updatedAt: minutesAgo(2), locationSharingEnabled: false, position: { latitude: 35.6577, longitude: 139.7053 } }
 ];
 
+const initialSearchProfiles: FriendSearchResult[] = [
+  { id: "sakura", friendCode: "SAKURA01", displayName: "Sakura", initials: "S", color: colors.coral, totalAreaKm2: 1.5, requestStatus: "accepted" },
+  { id: "kenji", friendCode: "KENJI99", displayName: "Kenji_XYZ", initials: "K", color: colors.sky, totalAreaKm2: 3.2, requestStatus: "accepted" },
+  { id: "riku", friendCode: "RIKU2026", displayName: "Riku", initials: "R", color: colors.yellow, totalAreaKm2: 0.4, requestStatus: "none" },
+  { id: "mei", friendCode: "MEI333", displayName: "Mei", initials: "M", color: colors.pink, totalAreaKm2: 2.1, requestStatus: "none" }
+];
+
 const initialRankings: RankingEntry[] = [
   { id: "taro", rank: 1, name: "たろう", initials: "T", areaKm2: 8.4, deltaKm2: 0.3, color: colors.coral },
   { id: "hana", rank: 2, name: "はなこ", initials: "H", areaKm2: 6.1, deltaKm2: 0.2, color: colors.sky },
@@ -69,11 +78,15 @@ function createDailyActivity(input: EnsureDailyActivityInput): DailyActivity {
   };
 }
 
-export function createMockTerriRepository(seed?: Partial<{ profile: UserProfile; activities: TerritorySummary[]; friends: FriendPresence[]; rankings: RankingEntry[] }>): TerriRepository {
+export function createMockTerriRepository(
+  seed?: Partial<{ profile: UserProfile; activities: TerritorySummary[]; friends: FriendPresence[]; rankings: RankingEntry[]; searchProfiles: FriendSearchResult[] }>
+): TerriRepository {
   let profile = seed?.profile ?? initialProfile;
   let activities = seed?.activities ?? initialActivities;
   const friends = seed?.friends ?? initialFriends;
   const rankings = seed?.rankings ?? initialRankings;
+  const searchProfiles = (seed?.searchProfiles ?? initialSearchProfiles).map((item) => ({ ...item }));
+  const pendingRequests = new Map<string, FriendRequestResult>();
   const dailyActivities = new Map<string, DailyActivity>();
   const locationPoints = new Map<string, StoredLocationPoint[]>();
 
@@ -136,6 +149,44 @@ export function createMockTerriRepository(seed?: Partial<{ profile: UserProfile;
     async getFriends() {
       await wait();
       return friends.map((friend) => ({ ...friend }));
+    },
+    async searchFriendsByCode(query) {
+      await wait();
+      const normalizedQuery = query.trim().toUpperCase();
+      if (normalizedQuery.length < 2) return [];
+
+      return searchProfiles
+        .filter((candidate) => candidate.id !== profile.id)
+        .filter((candidate) => candidate.friendCode.toUpperCase().includes(normalizedQuery) || candidate.displayName.toUpperCase().includes(normalizedQuery))
+        .slice(0, 10)
+        .map((candidate) => {
+          const request = pendingRequests.get(candidate.friendCode);
+          return { ...candidate, requestStatus: request?.status ?? candidate.requestStatus };
+        });
+    },
+    async requestFriendByCode(friendCode) {
+      await wait();
+      const normalizedCode = friendCode.trim().toUpperCase();
+      const candidate = searchProfiles.find((item) => item.friendCode.toUpperCase() === normalizedCode);
+      if (!candidate) {
+        throw new RepositoryError("ユーザーが見つかりません", "not-found");
+      }
+      if (candidate.id === profile.id) {
+        throw new RepositoryError("自分自身には友達申請できません", "invalid-state");
+      }
+
+      const existing = pendingRequests.get(candidate.friendCode);
+      if (existing) return { ...existing };
+
+      const status = candidate.requestStatus === "accepted" ? "accepted" : "pending";
+      const request: FriendRequestResult = {
+        friendshipId: `friendship-${candidate.id}`,
+        receiverUserId: candidate.id,
+        status
+      };
+      pendingRequests.set(candidate.friendCode, request);
+      candidate.requestStatus = status;
+      return { ...request };
     },
     async getRankings() {
       await wait();

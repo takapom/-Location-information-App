@@ -5,6 +5,8 @@ import { HistorySheet } from "@/features/map/components/HistorySheet";
 import { LiveTerritoryPanel } from "@/features/map/components/LiveTerritoryPanel";
 import { RankingSheet } from "@/features/map/components/RankingSheet";
 import { StartDock } from "@/features/map/components/StartDock";
+import { RepositoryProvider } from "@/lib/repositories/RepositoryProvider";
+import { createMockTerriRepository } from "@/lib/repositories/mockTerriRepository";
 
 const mockPush = jest.fn();
 const mockSetStringAsync = jest.fn<Promise<void>, [string]>(() => Promise.resolve());
@@ -31,6 +33,7 @@ jest.mock("react-native", () => {
     Pressable: ({ children, onPress, style, ...props }: { children?: React.ReactNode; onPress?: () => void; style?: unknown }) =>
       React.createElement("Pressable", { ...props, onPress, style: typeof style === "function" ? style({ pressed: false }) : style }, children),
     Text: ({ children, ...props }: { children?: React.ReactNode }) => React.createElement("Text", props, children),
+    TextInput: (props: unknown) => React.createElement("TextInput", props),
     TouchableOpacity: ({ children, onPress, ...props }: { children?: React.ReactNode; onPress?: () => void }) =>
       React.createElement("TouchableOpacity", { ...props, onPress }, children),
     View: ({ children, ...props }: { children?: React.ReactNode }) => React.createElement("View", props, children),
@@ -150,7 +153,7 @@ describe("map controls", () => {
     expect(onFriends).toHaveBeenCalledTimes(1);
   });
 
-  test("友達モーダルの閉じる・コピー・追加ボタンが押下できる", () => {
+  test("友達モーダルの閉じる・コピー・検索ボタンが押下できる", () => {
     const onClose = jest.fn();
     let tree: renderer.ReactTestRenderer | undefined;
     act(() => {
@@ -163,7 +166,38 @@ describe("map controls", () => {
       tree?.root.findByProps({ testID: "friends-add-button" }).props.onPress();
     });
 
-    expect(onClose).toHaveBeenCalledTimes(2);
+    expect(onClose).toHaveBeenCalledTimes(1);
     expect(mockSetStringAsync).toHaveBeenCalledWith("https://app.link/share...xyz");
+  });
+
+  test("友達ID検索から友達申請を送れる", async () => {
+    const repository = createMockTerriRepository();
+    let tree: renderer.ReactTestRenderer | undefined;
+    await act(async () => {
+      tree = renderer.create(
+        <RepositoryProvider repository={repository}>
+          <FriendsModal friends={[friend]} onClose={jest.fn()} />
+        </RepositoryProvider>
+      );
+    });
+
+    await act(async () => {
+      tree?.root.findByProps({ testID: "friends-search-input" }).props.onChangeText("RI");
+    });
+
+    await act(async () => {
+      tree?.root.findByProps({ testID: "friends-search-button" }).props.onPress();
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+
+    const requestButton = tree?.root.findByProps({ testID: "friend-request-RIKU2026" });
+    expect(requestButton).toBeTruthy();
+
+    await act(async () => {
+      requestButton?.props.onPress();
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+
+    expect(tree?.root.findByProps({ testID: "friend-request-label-RIKU2026" }).props.children).toBe("申請済み");
   });
 });

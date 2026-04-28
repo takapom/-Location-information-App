@@ -32,4 +32,16 @@ describe("Supabase SQL contracts", () => {
     expect(sql).toContain("da.user_id = auth.uid()");
     expect(sql).toContain("da.status in ('open', 'paused')");
   });
+
+  test("friend search only exposes public-safe profile fields through authenticated RPCs", () => {
+    const sql = readMigration("0006_friend_search.sql");
+
+    expect(sql).toContain("add column if not exists friend_code");
+    expect(sql).toContain("security definer");
+    expect(sql).toContain("auth.uid()");
+    expect(sql).toContain("p.id <> v_user_id");
+    expect(sql).toContain("coalesce(f.status, 'none') <> 'blocked'");
+    expect(sql).toContain("grant execute on function public.search_profiles_by_friend_code(text) to authenticated");
+    expect(sql).toContain("grant execute on function public.request_friend_by_code(text) to authenticated");
+  });
 });
