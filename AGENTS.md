@@ -3,8 +3,16 @@
 ## 基本方針
 - 回答・コメント・ドキュメントは原則日本語で書く。
 - 実装判断は `docs/architecture.md` を最優先する。
+- アーキテクチャに変更があるたびに、実装と合わせて `docs/architecture.md` を更新する。
 - 要件確認は `docs/移動距離連動型陣取り位置情報アプリ「TERRI」 最終要件定義書.md` を参照する。
 - 迷ったら「位置情報の正確性」「プライバシー」「mockとSupabaseの差し替えやすさ」「テスト容易性」を優先する。
+
+## ADR運用
+- ADR運用は `docs/ADR運用.md` に従う。
+- 実装前の設計方針は `docs/adr-proposals/` に作成する。
+- 実装後に確定したADRは `docs/adr/` に作成する。
+- 同じ判断に対する実装前方針と実装後ADRは、原則として同じ連番とスラッグで対応付ける。
+- ADRで `docs/architecture.md` の設計を変更する場合は、ADRだけで終わらせず `docs/architecture.md` も更新する。
 
 ## Skill使用
 - UI/UX設計・画面レビューでは `$terri-design-principles` を使う。
