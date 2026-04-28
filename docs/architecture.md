@@ -26,7 +26,7 @@ TERRIは「移動した軌跡を現実世界の陣地として可視化し、友
 ```text
 Expo Mobile App
   - GPS取得
-  - Mapbox地図描画
+  - MapSurfaceによる実地図描画
   - 常時テリトリー生成状態表示
   - 暫定ポリゴンプレビュー
   - Supabase Auth session
@@ -70,7 +70,7 @@ Supabase
 | 領域 | 採用 | 理由 |
 |---|---|---|
 | Mobile | Expo + React Native + TypeScript | GPS、通知、SNSログイン、iOS/Android配布を現実的に扱える |
-| Map | Mapbox SDK | 地図レイヤー、ポリゴン、アバターマーカー表現に強い |
+| Map | MapSurface facade + Web Leaflet/OSM、NativeはMapbox/MapLibre移行前提 | S04は現在地の実地図、自由なpan/zoom、ポリゴン、友達マーカーを必須にする。画面はMapSurface propsだけに依存し、地図エンジン差し替えを閉じ込める |
 | Backend Platform | Supabase | Auth、Postgres、Realtime、Storage、Edge Functionsを一体で扱える |
 | Database | Supabase Postgres + PostGIS | 位置情報、ポリゴン、面積、近傍検索、空間インデックスに強い |
 | Auth | Supabase Auth | Expo/React Nativeから扱いやすく、RLSと連動できる |
@@ -454,13 +454,21 @@ Feature単位の責務:
 | Feature | 責務 |
 |---|---|
 | `auth` | Supabase Auth、OAuth、セッション保持、AuthGate |
-| `map` | Mapbox初期化、ポリゴンレイヤー、友達マーカー、地名表示 |
+| `map` | MapSurface facade、現在地中心の実地図、pan/zoom可能な地図操作、ポリゴンレイヤー、友達マーカー、地名表示 |
 | `tracking` | GPS permission、現在地取得、領土化状態、送信間隔制御、プレビュー、Presence更新 |
 | `activities` | 日次履歴、詳細、live/final結果 |
 | `friends` | 友達一覧、招待、友達現在地購読 |
 | `ranking` | 友達間ランキング |
 | `profile` | 表示名、絵文字、陣地色、位置共有ON/OFF |
 | `share` | Instagram Stories風シェアカード生成 |
+
+### 8.1 MapSurface境界
+
+S04の地図は `apps/mobile/src/components/map/MapSurface` を描画facadeにする。画面やfeature hookは `MapSurface` へ `center`、`currentLocation`、`friends`、`friendTerritories`、`live`、`showRoute` などの描画用propsを渡すだけにし、Supabase client、repository、GPS取得を `MapSurface` へ持ち込まない。
+
+Web MVPはLeaflet/OSMを実地図エンジンとして使う。Zenly風の表現はタイルの彩度調整、アバターマーカー、友達限定チップ、陣地ポリゴンなどのレイヤー/オーバーレイで表現し、地図本体のdrag/zoom/touch操作を妨げない。ユーザーが一度地図をdrag/zoomした後は、同一画面内の位置情報更新で自動的に現在地へ戻さない。自動追従はユーザー操作前か、将来の明示的な現在地復帰操作に限定する。
+
+Nativeは現時点ではExpo Goで動く抽象マップを維持する。Mapbox/MapLibreへ移行する場合も `MapSurface` props契約と友達final territory/live previewの分離は維持し、地図エンジン固有コードを `MapSurface` 配下に閉じ込める。
 
 ---
 
@@ -491,7 +499,7 @@ Feature単位の責務:
 - Expoアプリ基盤
 - Supabase Auth
 - S01〜S08
-- Mapbox表示
+- MapSurfaceによる現在地実地図表示
 - 常時テリトリー生成
 - Supabase migration
 - PostGIS schema
@@ -537,7 +545,7 @@ Feature単位の責務:
 5. `packages/shared`にschemaと型を作る。
 6. `packages/geo`にGPSフィルタ、距離、プレビュー、territory builderのテストを作る。
 7. `sync_live_territory` と `finalize_daily_activity` RPCを作る。
-8. `apps/mobile`にMapbox表示、位置情報/領土化状態、GPS保存を作る。
+8. `apps/mobile`にMapSurface表示、位置情報/領土化状態、GPS保存を作る。
 9. S04/S07/S08でlive結果、日次確定結果、履歴を表示する。
 10. Phase 2用にfriendship schema、ranking view、presence設計を追加する。
 
