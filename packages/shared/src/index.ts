@@ -77,6 +77,15 @@ export type FriendPresence = {
   avatarUrl?: string;
 };
 
+export type FriendLivePresencePayload = {
+  userId: string;
+  position: GeoPoint;
+  updatedAt: string;
+  isActive: boolean;
+  locationSharingEnabled: boolean;
+  accuracyM?: number;
+};
+
 export type FriendTerritory = {
   id: string;
   friendUserId: string;

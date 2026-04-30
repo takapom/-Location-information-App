@@ -62,19 +62,22 @@ describe("Supabase SQL contracts", () => {
   });
 
   test("friend rankings are scoped to self and accepted friends through an authenticated RPC", () => {
-    const sql = readMigration("0008_friend_rankings.sql");
+    const sql = readMigration("0011_ranking_delta_periods.sql");
 
     expect(sql).toContain("list_friend_rankings()");
     expect(sql).toContain("security definer");
     expect(sql).toContain("v_user_id uuid := auth.uid()");
+    expect(sql).toContain("v_reference_date date := current_date");
     expect(sql).toContain("raise exception 'auth required'");
     expect(sql).toContain("select");
     expect(sql).toContain("v_user_id as user_id");
     expect(sql).toContain("fs.status = 'accepted'");
     expect(sql).toContain("fs.requester_user_id = v_user_id or fs.receiver_user_id = v_user_id");
+    expect(sql).toContain("where da.local_date between v_reference_date - 6 and v_reference_date");
+    expect(sql).toContain("where da.local_date between v_reference_date - 13 and v_reference_date - 7");
+    expect(sql).toContain("(t.current_period_area_m2 - t.previous_period_area_m2)::double precision as delta_area_m2");
     expect(sql).toContain("dense_rank() over (order by t.total_area_m2 desc)::integer as ranking_rank");
     expect(sql).toContain("order by ranked.ranking_rank asc, ranked.display_name asc");
-    expect(sql).toContain("0::double precision as delta_area_m2");
     expect(sql).toContain("revoke all on function public.list_friend_rankings() from public");
     expect(sql).toContain("grant execute on function public.list_friend_rankings() to authenticated");
   });
@@ -93,5 +96,27 @@ describe("Supabase SQL contracts", () => {
     expect(sql).toContain("ST_AsGeoJSON(coalesce(t.simplified_polygon, t.polygon))::jsonb");
     expect(sql).toContain("revoke all on function public.list_friend_territories() from public");
     expect(sql).toContain("grant execute on function public.list_friend_territories() to authenticated");
+  });
+
+  test("friend live presence private channels are limited to self and accepted friends", () => {
+    const sql = readMigration("0010_friend_live_presence_realtime.sql");
+
+    expect(sql).toContain("presence_topic_user_id(p_topic text)");
+    expect(sql).toContain("^presence:user:");
+    expect(sql).toContain("can_access_friend_presence_topic(p_topic text)");
+    expect(sql).toContain("can_track_friend_presence_topic(p_topic text)");
+    expect(sql).toContain("alter table realtime.messages enable row level security");
+    expect(sql).toContain('create policy "friend_presence_read_accepted_or_self"');
+    expect(sql).toContain('create policy "friend_presence_track_self"');
+    expect(sql).toContain("realtime.messages.extension = 'presence'");
+    expect(sql).toContain("public.can_access_friend_presence_topic(realtime.topic())");
+    expect(sql).toContain("target_profile.location_sharing_enabled");
+    expect(sql).toContain("p.location_sharing_enabled");
+    expect(sql).toContain("fs.status = 'accepted'");
+    expect(sql).toContain("fs.requester_user_id = auth.uid() and fs.receiver_user_id = target.user_id");
+    expect(sql).toContain("fs.receiver_user_id = auth.uid() and fs.requester_user_id = target.user_id");
+    expect(sql).toContain("public.can_track_friend_presence_topic(realtime.topic())");
+    expect(sql).toContain("grant execute on function public.can_access_friend_presence_topic(text) to authenticated");
+    expect(sql).toContain("grant execute on function public.can_track_friend_presence_topic(text) to authenticated");
   });
 });
