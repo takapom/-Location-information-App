@@ -1,5 +1,9 @@
 import type { LatLngTuple } from "./mapGeometry";
 
+export const MAP_INITIAL_ZOOM = 16;
+export const MAP_MIN_ZOOM = 3;
+export const MAP_MAX_ZOOM = 19;
+
 type AutoCenterInput = {
   hasUserMovedMap: boolean;
   previousCenterKey?: string;

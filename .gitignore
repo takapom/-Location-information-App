@@ -3,6 +3,8 @@ node_modules/
 apps/*/node_modules/
 .expo/
 apps/*/.expo/
+apps/mobile/ios/
+apps/mobile/android/
 .serena/
 dist/
 apps/mobile/dist-web/

@@ -6,6 +6,12 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "ios": {
+      "bundleIdentifier": "app.terri.mobile"
+    },
+    "android": {
+      "package": "app.terri.mobile"
+    },
     "plugins": [
       "expo-router",
       [
@@ -13,7 +19,8 @@
         {
           "locationWhenInUsePermission": "移動した場所を領土として記録するために位置情報を使用します。"
         }
-      ]
+      ],
+      "@maplibre/maplibre-react-native"
     ],
     "experiments": {
       "typedRoutes": true

@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useRef } from "react";
 import type { FriendTerritory, GeoPoint, TerritoryGeometry } from "@terri/shared";
 import { colors } from "@/theme/tokens";
-import { shouldAutoCenterMap, toLatLngKey } from "./mapCamera";
+import { MAP_INITIAL_ZOOM, MAP_MAX_ZOOM, MAP_MIN_ZOOM, shouldAutoCenterMap, toLatLngKey } from "./mapCamera";
 import { buildTerritoryPolygons, buildTrackingRoute, offsetLatLng, SHIBUYA_CENTER, type LatLngTuple } from "./mapGeometry";
 import { buildFriendLayerKey } from "./mapLayerKeys";
 import type { MapFriendMarker, MapSelfMarker } from "./mapTypes";
@@ -68,9 +68,9 @@ export const MapSurface = memo(function MapSurface({
       injectLeafletCss();
       const map = L.map(containerRef.current, {
         center: latest.mapCenter,
-        zoom: 16,
-        minZoom: 13,
-        maxZoom: 19,
+        zoom: MAP_INITIAL_ZOOM,
+        minZoom: MAP_MIN_ZOOM,
+        maxZoom: MAP_MAX_ZOOM,
         preferCanvas: true,
         zoomAnimation: true,
         markerZoomAnimation: false,
@@ -87,7 +87,7 @@ export const MapSurface = memo(function MapSurface({
       });
 
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
+        maxZoom: MAP_MAX_ZOOM,
         updateWhenIdle: true,
         updateWhenZooming: false,
         keepBuffer: 2,
@@ -148,7 +148,7 @@ export const MapSurface = memo(function MapSurface({
     }
 
     currentCenterKeyRef.current = mapCenterKey;
-    mapRef.current.setView(mapCenter, Math.max(mapRef.current.getZoom(), 16), { animate: true });
+    mapRef.current.setView(mapCenter, mapRef.current.getZoom(), { animate: true });
   }, [mapCenterKey]);
 
   useEffect(() => {

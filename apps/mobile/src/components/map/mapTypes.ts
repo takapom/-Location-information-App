@@ -1,4 +1,4 @@
-import type { TerritoryColor } from "@terri/shared";
+import type { FriendTerritory, GeoPoint, TerritoryColor } from "@terri/shared";
 
 export type MapFriendMarker = {
   id: string;
@@ -15,4 +15,15 @@ export type MapFriendMarker = {
 export type MapSelfMarker = {
   initials: string;
   color: TerritoryColor;
+};
+
+export type MapSurfaceProps = {
+  center?: GeoPoint;
+  currentLocation?: GeoPoint;
+  currentUser?: MapSelfMarker;
+  friends?: MapFriendMarker[];
+  friendTerritories?: FriendTerritory[];
+  activeFriendCount?: number;
+  live?: boolean;
+  showRoute?: boolean;
 };
