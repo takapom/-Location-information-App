@@ -3,7 +3,7 @@ import { colors } from "@/theme/tokens";
 import { FriendsModal } from "@/features/map/components/FriendsModal";
 import { HistorySheet } from "@/features/map/components/HistorySheet";
 import { LiveTerritoryPanel } from "@/features/map/components/LiveTerritoryPanel";
-import { RankingSheet } from "@/features/map/components/RankingSheet";
+import { getWeeklyDeltaLabel, getWeeklyDeltaTone, RankingSheet } from "@/features/map/components/RankingSheet";
 import { StartDock } from "@/features/map/components/StartDock";
 import { RepositoryProvider } from "@/lib/repositories/RepositoryProvider";
 import { createMockTerriRepository } from "@/lib/repositories/mockTerriRepository";
@@ -152,6 +152,15 @@ describe("map controls", () => {
     });
 
     expect(onFriends).toHaveBeenCalledTimes(1);
+  });
+
+  test("ランキング前週比は正負ゼロを実値で表示する", () => {
+    expect(getWeeklyDeltaLabel(0.4)).toBe("先週比+0.4");
+    expect(getWeeklyDeltaLabel(-0.2)).toBe("先週比-0.2");
+    expect(getWeeklyDeltaLabel(0)).toBe("先週比±0.0");
+    expect(getWeeklyDeltaTone(0.4)).toBe("mint");
+    expect(getWeeklyDeltaTone(-0.2)).toBe("coral");
+    expect(getWeeklyDeltaTone(0)).toBe("neutral");
   });
 
   test("友達モーダルの閉じる・コピー・検索ボタンが押下できる", async () => {

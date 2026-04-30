@@ -124,7 +124,7 @@ describe("supabaseTerriRepository mappers", () => {
         avatar_url: null,
         territory_color: colors.mint,
         total_area_m2: 1234567,
-        delta_area_m2: 0,
+        delta_area_m2: -234567,
         rank: 2,
         is_current_user: false
       })
@@ -134,7 +134,7 @@ describe("supabaseTerriRepository mappers", () => {
       name: "Aoi",
       initials: "AO",
       areaKm2: 1.2346,
-      deltaKm2: 0,
+      deltaKm2: -0.2346,
       color: colors.mint,
       isCurrentUser: false
     });

@@ -11,6 +11,22 @@ type RankingSheetProps = {
   onFriends: () => void;
 };
 
+function formatSignedDelta(deltaKm2: number) {
+  if (deltaKm2 > 0) return `+${deltaKm2.toFixed(1)}`;
+  if (deltaKm2 < 0) return deltaKm2.toFixed(1);
+  return "±0.0";
+}
+
+export function getWeeklyDeltaLabel(deltaKm2: number) {
+  return `先週比${formatSignedDelta(deltaKm2)}`;
+}
+
+export function getWeeklyDeltaTone(deltaKm2: number): "coral" | "mint" | "neutral" {
+  if (deltaKm2 > 0) return "mint";
+  if (deltaKm2 < 0) return "coral";
+  return "neutral";
+}
+
 export function RankingSheet({ rankings, onFriends }: RankingSheetProps) {
   const topThree = rankings.slice(0, 3);
 
@@ -24,7 +40,7 @@ export function RankingSheet({ rankings, onFriends }: RankingSheetProps) {
             <Avatar initials={entry.initials} color={entry.color} size={entry.rank === 1 ? 76 : 64} />
             <Text style={styles.podiumName}>{entry.name}</Text>
             <Text style={styles.podiumArea}>{entry.areaKm2.toFixed(1)} km²</Text>
-            {entry.rank === 1 ? <Pill>首位 🔥</Pill> : <Pill tone="mint">先週比+{entry.deltaKm2.toFixed(1)}</Pill>}
+            <Pill tone={getWeeklyDeltaTone(entry.deltaKm2)}>{getWeeklyDeltaLabel(entry.deltaKm2)}</Pill>
           </View>
         ))}
       </View>
@@ -33,7 +49,7 @@ export function RankingSheet({ rankings, onFriends }: RankingSheetProps) {
           <Text style={styles.rankIndex}>{entry.isCurrentUser ? "You" : `#${entry.rank}`}</Text>
           <Text style={styles.rankName}>{entry.name}</Text>
           <Text style={styles.rankArea}>{entry.areaKm2.toFixed(1)}km²</Text>
-          <Pill tone="mint">↑{entry.deltaKm2.toFixed(1)}</Pill>
+          <Pill tone={getWeeklyDeltaTone(entry.deltaKm2)}>{formatSignedDelta(entry.deltaKm2)}</Pill>
         </View>
       ))}
       <PrimaryButton onPress={onFriends} testID="ranking-friends-button">👥 友達を追加</PrimaryButton>

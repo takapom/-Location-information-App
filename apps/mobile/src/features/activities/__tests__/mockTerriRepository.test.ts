@@ -152,10 +152,11 @@ describe("mockTerriRepository", () => {
 
     await expect(repository.getRankings()).resolves.toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ rank: 1, areaKm2: 8.4 }),
+        expect.objectContaining({ rank: 1, areaKm2: 8.4, deltaKm2: expect.any(Number) }),
         expect.objectContaining({ id: "user-current", isCurrentUser: true })
       ])
     );
+    expect((await repository.getRankings()).some((entry) => entry.deltaKm2 !== 0)).toBe(true);
   });
 
   test("友達の確定済み陣地をFriendTerritory契約で返す", async () => {
