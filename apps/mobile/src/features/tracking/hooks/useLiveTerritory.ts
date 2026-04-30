@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import { AppState } from "react-native";
+import type { UserProfile } from "@terri/shared";
+import { createFriendLivePresencePayload, shouldPublishFriendLivePresence } from "@/features/friends/services/livePresence";
+import { useTerriPresenceClient } from "@/lib/realtime/PresenceProvider";
 import { useTerriRepository } from "@/lib/repositories/RepositoryProvider";
 import { getLocalDateForTimezone, initialLiveTerritoryState, liveTerritoryReducer } from "@/features/tracking/services/liveTerritoryState";
 import { requestTerritoryLocationPermission } from "@/features/tracking/services/locationPermission";
@@ -13,17 +16,57 @@ function getDeviceTimezone() {
 
 export function useLiveTerritory() {
   const repository = useTerriRepository();
+  const presenceClient = useTerriPresenceClient();
   const [state, dispatch] = useReducer(liveTerritoryReducer, initialLiveTerritoryState);
   const activationInFlightRef = useRef(false);
   const watcherSubscriptionRef = useRef<LocationWatcherSubscription | undefined>(undefined);
   const lastSentLocationRef = useRef<CurrentLocation | undefined>(undefined);
   const lastSyncAtMsRef = useRef<number | undefined>(undefined);
+  const lastPresencePublishedAtMsRef = useRef<number | undefined>(undefined);
   const syncInFlightRef = useRef(false);
+  const profileRef = useRef<UserProfile | undefined>(undefined);
 
   const stopWatcher = useCallback(() => {
     watcherSubscriptionRef.current?.remove();
     watcherSubscriptionRef.current = undefined;
   }, []);
+
+  const clearOwnPresence = useCallback(() => {
+    const profile = profileRef.current;
+    if (!profile) return;
+    lastPresencePublishedAtMsRef.current = undefined;
+    presenceClient.clearOwnPresence(profile.id).catch(() => undefined);
+  }, [presenceClient]);
+
+  const publishOwnPresence = useCallback(
+    async (location: CurrentLocation, force = false) => {
+      const nowMs = Date.now();
+      if (!shouldPublishFriendLivePresence({ lastPublishedAtMs: lastPresencePublishedAtMsRef.current, nowMs, force })) return;
+
+      let profile = profileRef.current;
+      try {
+        profile = await repository.getProfile();
+        profileRef.current = profile;
+      } catch {
+        clearOwnPresence();
+        return;
+      }
+
+      const payload = createFriendLivePresencePayload({
+        profile,
+        currentLocation: location,
+        isActive: true
+      });
+      if (!payload) {
+        clearOwnPresence();
+        return;
+      }
+
+      await presenceClient.publishOwnPresence(payload);
+      lastPresencePublishedAtMsRef.current = nowMs;
+    },
+    [clearOwnPresence, presenceClient, repository]
+  );
 
   const appendTrackedLocation = useCallback(
     async (dailyActivityId: string, location: CurrentLocation) => {
@@ -66,6 +109,7 @@ export function useLiveTerritory() {
       watcherSubscriptionRef.current = await startTerritoryLocationWatcher({
         onLocation: async (location) => {
           dispatch({ type: "CURRENT_LOCATION_UPDATED", currentLocation: location });
+          publishOwnPresence(location).catch(() => undefined);
           const appended = await appendTrackedLocation(dailyActivityId, location);
           if (appended) {
             await syncIfDue(dailyActivityId);
@@ -76,7 +120,7 @@ export function useLiveTerritory() {
         }
       });
     },
-    [appendTrackedLocation, stopWatcher, syncIfDue]
+    [appendTrackedLocation, publishOwnPresence, stopWatcher, syncIfDue]
   );
 
   const activate = useCallback(async () => {
@@ -102,8 +146,10 @@ export function useLiveTerritory() {
       }
 
       const profile = await repository.getProfile();
+      profileRef.current = profile;
       if (!profile.territoryCaptureEnabled) {
         stopWatcher();
+        clearOwnPresence();
         dispatch({ type: "PAUSE_BY_PRIVACY", message: "テリトリー生成がOFFです" });
         return;
       }
@@ -115,6 +161,7 @@ export function useLiveTerritory() {
         return;
       }
       dispatch({ type: "CURRENT_LOCATION_UPDATED", currentLocation });
+      publishOwnPresence(currentLocation, true).catch(() => undefined);
 
       const timezone = getDeviceTimezone();
       const dailyActivity = await repository.ensureDailyActivity({
@@ -133,7 +180,7 @@ export function useLiveTerritory() {
     } finally {
       activationInFlightRef.current = false;
     }
-  }, [appendTrackedLocation, repository, startWatcher, stopWatcher]);
+  }, [appendTrackedLocation, clearOwnPresence, publishOwnPresence, repository, startWatcher, stopWatcher]);
 
   const sync = useCallback(async () => {
     if (!state.dailyActivity) return;
@@ -161,8 +208,9 @@ export function useLiveTerritory() {
     return () => {
       subscription.remove();
       stopWatcher();
+      clearOwnPresence();
     };
-  }, [activate, stopWatcher]);
+  }, [activate, clearOwnPresence, stopWatcher]);
 
   return {
     state,
@@ -170,8 +218,10 @@ export function useLiveTerritory() {
     sync,
     reset: () => {
       stopWatcher();
+      clearOwnPresence();
       lastSentLocationRef.current = undefined;
       lastSyncAtMsRef.current = undefined;
+      lastPresencePublishedAtMsRef.current = undefined;
       syncInFlightRef.current = false;
       dispatch({ type: "RESET" });
     }

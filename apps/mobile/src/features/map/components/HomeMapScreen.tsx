@@ -5,6 +5,7 @@ import type { FriendPresence, FriendTerritory, RankingEntry, TerritorySummary, U
 import { MapSurface } from "@/components/map/MapSurface";
 import { Avatar } from "@/components/ui/Avatar";
 import { useTerriRepository } from "@/lib/repositories/RepositoryProvider";
+import { useFriendLivePresence } from "@/features/friends/hooks/useFriendLivePresence";
 import { formatPresenceUpdatedAt, getActiveFriendPresenceCount, getVisibleFriendPresences } from "@/features/friends/presence";
 import { useLiveTerritory } from "@/features/tracking/hooks/useLiveTerritory";
 import { getTerritoryCaptureSummary } from "@/features/tracking/services/liveTerritoryState";
@@ -52,7 +53,8 @@ export function HomeMapScreen() {
   }, [repository]);
 
   const isLive = liveTerritory.state.status === "live" || liveTerritory.state.status === "syncing";
-  const visibleFriends = useMemo(() => getVisibleFriendPresences(friends), [friends]);
+  const liveFriends = useFriendLivePresence(friends);
+  const visibleFriends = useMemo(() => getVisibleFriendPresences(liveFriends), [liveFriends]);
   const mapFriends = useMemo(
     () =>
       visibleFriends.map((friend) => ({
@@ -68,7 +70,7 @@ export function HomeMapScreen() {
       })),
     [visibleFriends]
   );
-  const activeFriendCount = useMemo(() => getActiveFriendPresenceCount(friends), [friends]);
+  const activeFriendCount = useMemo(() => getActiveFriendPresenceCount(liveFriends), [liveFriends]);
   const currentLocation = liveTerritory.state.currentLocation;
   const currentUserMarker = useMemo(
     () => ({
@@ -106,7 +108,7 @@ export function HomeMapScreen() {
       />
       {overlay === "history" ? <HistorySheet activities={activities} onClose={() => setOverlay("none")} /> : null}
       {overlay === "ranking" ? <RankingSheet rankings={rankings} onFriends={() => setOverlay("friends")} /> : null}
-      {overlay === "friends" ? <FriendsModal friends={friends} onFriendsChange={setFriends} onClose={() => setOverlay("none")} /> : null}
+      {overlay === "friends" ? <FriendsModal friends={liveFriends} onFriendsChange={setFriends} onClose={() => setOverlay("none")} /> : null}
     </View>
   );
 }
