@@ -5,20 +5,21 @@
 最終作業commit:
 
 ```text
-68cf886 feat: add friend ranking rpc
+34fdd4a feat: refine zenly style map surface
 ```
 
 Supabase反映:
 
 - local Supabase:
-  - DB migration `0001` から `0008` まで適用済み
+  - DB migration `0001` から `0011` まで適用済み
   - `list_incoming_friend_requests`
   - `list_outgoing_friend_requests`
   - `list_accepted_friends`
   - `respond_friend_request`
   - `list_friend_rankings`
+  - `list_friend_territories`
 - remote Supabase:
-  - 直近の友達申請/ランキング実装はremoteへ適用していない
+  - 直近の友達申請/ランキング/友達陣地/Presence/ranking delta実装はremoteへ適用していない
   - 以降の作業も、明示がない限りlocalに納める
 
 動作確認:
@@ -28,6 +29,7 @@ Supabase反映:
   - Metro: `exp://127.0.0.1:8081`
 - S04でランキングUIの実データ表示確認済み
 - local Supabase上で同面積ユーザーが同じrankになることを確認済み
+- 友達ライブ現在地Presence実装はTypeScript/Jest/SQL contractで確認済み
 
 ## 重要な設計前提
 
@@ -47,6 +49,11 @@ Supabase反映:
 - `docs/adr/0002-friend-search-by-code.md`
 - `docs/adr/0003-friend-request-response.md`
 - `docs/adr/0004-friend-ranking-rpc.md`
+- `docs/adr/0005-friend-territories-rpc.md`
+- `docs/adr/0006-zenly-style-map-engine.md`
+- `docs/adr/0007-friend-live-presence.md`
+- `docs/adr/0008-ranking-delta-snapshots.md`
+- `docs/adr/0009-native-maplibre-map-surface.md`
 
 ## 実装済み内容
 
@@ -122,11 +129,13 @@ Supabase反映:
 主なファイル:
 
 - `supabase/migrations/0008_friend_rankings.sql`
+- `supabase/migrations/0011_ranking_delta_periods.sql`
 - `apps/mobile/src/lib/supabase/supabaseTerriRepository.ts`
 - `apps/mobile/src/lib/supabase/__tests__/supabaseTerriRepository.ranking.test.ts`
 - `apps/mobile/src/features/activities/__tests__/mockTerriRepository.test.ts`
 - `apps/mobile/src/lib/supabase/__tests__/supabaseSqlContracts.test.ts`
 - `docs/adr/0004-friend-ranking-rpc.md`
+- `docs/adr/0008-ranking-delta-snapshots.md`
 
 内容:
 
@@ -135,26 +144,74 @@ Supabase反映:
 - 面積は `daily_activities.area_m2` の合計。
 - `rank` は総面積降順の `dense_rank()`。同面積は同rank。
 - 表示順は `rank asc, display_name asc`。
-- `delta_area_m2` は比較スナップショット未実装のためMVPでは `0`。
+- `delta_area_m2` はDBの `current_date` を基準に、直近7日合計からその前7日合計を引く。
 - `supabaseTerriRepository.getRankings()` はRPC前に `ensureProfile()` を実行し、新規profile作成競合を避ける。
+
+### 5. 友達の確定済み陣地表示
+
+主なファイル:
+
+- `supabase/migrations/0009_friend_territories.sql`
+- `apps/mobile/src/lib/repositories/terriRepository.ts`
+- `apps/mobile/src/lib/repositories/mockTerriRepository.ts`
+- `apps/mobile/src/lib/supabase/supabaseTerriRepository.ts`
+- `apps/mobile/src/features/map/components/HomeMapScreen.tsx`
+- `apps/mobile/src/components/map/MapSurface.tsx`
+- `docs/adr/0005-friend-territories-rpc.md`
+
+内容:
+
+- `list_friend_territories()` RPCを追加。
+- accepted friendの `territories(state='final')` だけをGeoJSONで返す。
+- 自分のterritoryと友達のlive previewは混ぜない。
+- S04では友達final territoryを低opacityの別レイヤーで描画する。
+
+### 6. 友達ライブ現在地Presence
+
+主なファイル:
+
+- `supabase/migrations/0010_friend_live_presence_realtime.sql`
+- `apps/mobile/src/lib/realtime/terriPresenceClient.ts`
+- `apps/mobile/src/lib/realtime/PresenceProvider.tsx`
+- `apps/mobile/src/lib/supabase/supabaseTerriPresenceClient.ts`
+- `apps/mobile/src/features/friends/services/livePresence.ts`
+- `apps/mobile/src/features/friends/hooks/useFriendLivePresence.ts`
+- `apps/mobile/src/features/tracking/hooks/useLiveTerritory.ts`
+- `docs/adr/0007-friend-live-presence.md`
+
+内容:
+
+- `presence:user:{userId}` のprivate Presence channelを採用。
+- 本人だけが自分のchannelへtrackし、本人またはaccepted friendだけがsubscribeできるRLS policyを `realtime.messages` に追加。
+- `location_sharing_enabled=false` ではPresenceを送らず、既存Presenceをuntrackする。
+- tracking hookが現在地更新時に15秒間隔でPresenceを送る。
+- friends hookが友達Presenceを購読し、承認済み友達一覧へ位置/active/更新時刻だけmergeする。
+- 友達ライブ現在地はPostgresに保存しない。
 
 ## 検証済みコマンド
 
 ```bash
 pnpm --filter @terri/mobile typecheck
 pnpm --filter @terri/mobile test
+pnpm --filter @terri/mobile exec expo config --type public
+pnpm --filter @terri/mobile exec expo config --type introspect
 git diff --check
 supabase db push --local
 supabase migration list --local
+supabase db diff --local --schema public,realtime
 ```
 
 確認済み結果:
 
 - TypeScript typecheck通過
-- Jest全体通過: 19 suites / 81 tests
+- Jest全体通過: 24 suites / 108 tests
+- Expo public configでMapLibre plugin解決を確認済み
+- Expo introspectで `app.terri.mobile`、MapLibre plugin、iOS/Android位置情報権限を確認済み
+- `/tmp` コピーで iOS/Android prebuild成功。iOSはアプリアイコン未設定警告のみ
 - whitespace check通過
-- local migration `0008` 適用済み
-- local DBに `list_friend_rankings` が存在することを確認済み
+- local migration `0011` まで適用済み
+- local DBで `list_friend_rankings()` の直近7日対前7日delta、accepted friend限定、同rankを実データで確認済み
+- `supabase db diff --local --schema public,realtime` は `No schema changes found`
 
 ## 現在の作業ツリー注意
 
@@ -165,81 +222,53 @@ supabase migration list --local
 
 `AGENTS.md` はADR運用と `docs/architecture.md` 更新ルールを追記済み。参照先の `docs/ADR運用.md` と同じcommitに含める。
 
+### 7. Native MapLibre MapSurface
+
+主なファイル:
+
+- `apps/mobile/src/components/map/MapSurface.native.tsx`
+- `apps/mobile/src/components/map/mapNativeLayers.ts`
+- `apps/mobile/src/components/map/__tests__/mapNativeLayers.test.ts`
+- `apps/mobile/app.json`
+- `docs/adr/0009-native-maplibre-map-surface.md`
+
+内容:
+
+- `@maplibre/maplibre-react-native` を追加。
+- `expo-system-ui` を追加し、Androidの `userInterfaceStyle` prebuild警告を解消。
+- Nativeの `MapSurface` をMapLibre `Map` / `Camera` / `GeoJSONSource` / `Layer` / `Marker` で実装。
+- S04 screenは既存どおり `MapSurface` propsだけに依存し、MapLibreを直接importしない。
+- 友達確定済み陣地、live preview、tracking route、友達marker、自分markerを別レイヤーで描画する。
+- MapLibre native moduleを使うため、実機確認はExpo Goではなくdev build/prebuildが必要。
+- dev buildはアプリ内定義のOSM raster tile style。本番style/tilesの選定は未完了。
+
 ## 次に実装するべきこと
 
-優先度1: 友達の確定済み陣地表示RPC
-
-理由:
-
-- 友達申請、承認済み友達一覧、友達ランキングは実装済み。
-- 現状、移動して自分のactivity/areaは更新されるが、友達から見える地図上の陣地表示にはまだつながっていない。
-- S04メインマップの体験として、accepted友達の `territories(state='final')` を表示するのが次の自然な単位。
-
-実装方針:
-
-1. ADR proposal追加
-   - `docs/adr-proposals/0005-friend-territories-rpc.md`
-   - 実装後に `docs/adr/0005-friend-territories-rpc.md` を作成する。
-
-2. Shared contract追加
-   - `FriendTerritory`
-   - 最小のGeoJSON polygon/multipolygon型
-
-3. Supabase migration追加
-   - `supabase/migrations/0009_friend_territories.sql`
-   - RPC名は `list_friend_territories()`
-   - `auth.uid()` 必須
-   - `friendships.status = 'accepted'` の友達だけ対象
-   - `territories.state = 'final'` だけ対象
-   - geometryは `ST_AsGeoJSON(coalesce(simplified_polygon, polygon))::jsonb` で返す
-   - 自分のterritoryは混ぜない
-
-4. Repository contract追加
-   - `TerriRepository.getFriendTerritories(): Promise<FriendTerritory[]>`
-   - mock/Supabase両方に実装
-   - 画面からSupabaseを直接呼ばない
-
-5. UI追加
-   - `HomeMapScreen` の初期ロードに `getFriendTerritories()` を追加
-   - `MapSurface` に `friendTerritories` propsを追加
-   - 友達final territoryは自分のlive previewと別レイヤー、低opacityで描画
-   - friend marker/presenceとは別データとして扱う
-
-6. Tests
-   - SQL contract: `auth.uid()`, `accepted`, `state = 'final'`, `ST_AsGeoJSON`, grant
-   - Supabase mapper: m2 to km2、color fallback、GeoJSON保持
-   - mock repository: `getFriendTerritories()` 契約
-   - MapSurface: friend territory polygonが描画入力に含まれること
-
-## 優先度2以降
-
-### 2. 友達現在地Presence
+優先度1: remote Supabaseへの最新migration反映確認
 
 現状:
 
-- 友達プロフィール一覧は取得できる。
-- 位置情報共有ON/OFFはプロフィールとして取得できる。
-- ライブ現在地はまだRealtime Presenceへ接続していない。
+- `0009_friend_territories.sql`、`0010_friend_live_presence_realtime.sql`、`0011_ranking_delta_periods.sql` はremote未反映。
+- local Supabaseでは `0011` まで適用・schema diff確認済み。
 
 実装候補:
 
-- 友達グループまたはuser pair単位のchannel設計をADR化する。
-- `location_sharing_enabled = false` ではpresenceを送らない。
-- 友達のライブ現在地履歴は保存しない。
-- 30分更新がなければoffline扱いにする。
+- remote適用はSupabase access tokenと明示指示を受けてから行う。
+- 適用前にremote schema dumpとmigration listを確認する。
 
-### 3. ranking deltaの実装
+### 2. 実機でのGPS/地図/権限/Presence検証
 
 現状:
 
-- `list_friend_rankings()` の `delta_area_m2` は常に0。
+- TypeScript/Jestでは通過。
+- 実機のForeground GPS、Realtime Presence、Leaflet Web表示、Native MapLibre表示は未検証。
 
 実装候補:
 
-- 日次または週次のランキングスナップショットを設計する。
-- 比較対象期間をADRで決めてからDB schema/RPCを追加する。
+- dev build/prebuild後にiOS/Android実機で位置情報許可、共有OFF、領土化ON、Presence送受信、MapLibre表示を確認する。
+- Webはdev serverでS04の地図操作と友達マーカーを確認する。
 
-### 4. 本番/ローカル環境の切り替え運用
+### 3. 本番/ローカル環境の切り替え運用
 
 現状:
 
