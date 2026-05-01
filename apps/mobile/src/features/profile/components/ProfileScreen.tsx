@@ -16,10 +16,32 @@ export function ProfileScreen() {
   const params = useLocalSearchParams<{ setup?: string }>();
   const isInitialSetup = params.setup === "1";
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [error, setError] = useState<string | undefined>();
 
   useEffect(() => {
-    repository.getProfile().then(setProfile);
-  }, [repository]);
+    if (auth.enabled && auth.loading) return;
+    if (auth.enabled && !auth.session) {
+      router.replace("/login");
+      return;
+    }
+
+    let active = true;
+    repository
+      .getProfile()
+      .then((nextProfile) => {
+        if (!active) return;
+        setProfile(nextProfile);
+        setError(undefined);
+      })
+      .catch((nextError: unknown) => {
+        if (!active) return;
+        setError(nextError instanceof Error ? nextError.message : "プロフィールを読み込めませんでした");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [auth.enabled, auth.loading, auth.session, repository]);
 
   const updateColor = async (color: TerritoryColor) => {
     setProfile(await repository.updateTerritoryColor(color));
@@ -45,7 +67,7 @@ export function ProfileScreen() {
   if (!profile) {
     return (
       <View style={styles.screen}>
-        <Text style={styles.loading}>読み込み中</Text>
+        <Text style={styles.loading}>{error ?? "読み込み中"}</Text>
       </View>
     );
   }
