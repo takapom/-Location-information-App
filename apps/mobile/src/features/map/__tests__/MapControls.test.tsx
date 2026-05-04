@@ -1,5 +1,6 @@
 import renderer, { act } from "react-test-renderer";
 import { colors } from "@/theme/tokens";
+import { CompleteSheet } from "@/features/map/components/CompleteSheet";
 import { FriendsModal } from "@/features/map/components/FriendsModal";
 import { HistorySheet } from "@/features/map/components/HistorySheet";
 import { LiveTerritoryPanel } from "@/features/map/components/LiveTerritoryPanel";
@@ -33,6 +34,9 @@ jest.mock("react-native", () => {
     Pressable: ({ children, onPress, style, ...props }: { children?: React.ReactNode; onPress?: () => void; style?: unknown }) =>
       React.createElement("Pressable", { ...props, onPress, style: typeof style === "function" ? style({ pressed: false }) : style }, children),
     ScrollView: ({ children, ...props }: { children?: React.ReactNode }) => React.createElement("ScrollView", props, children),
+    Share: {
+      share: jest.fn(() => Promise.resolve({ action: "sharedAction" }))
+    },
     Text: ({ children, ...props }: { children?: React.ReactNode }) => React.createElement("Text", props, children),
     TextInput: (props: unknown) => React.createElement("TextInput", props),
     TouchableOpacity: ({ children, onPress, ...props }: { children?: React.ReactNode; onPress?: () => void }) =>
@@ -88,6 +92,9 @@ describe("map controls", () => {
   beforeEach(() => {
     mockPush.mockClear();
     mockSetStringAsync.mockClear();
+    const { Share } = require("react-native");
+    Share.share.mockClear();
+    Share.share.mockResolvedValue({ action: "sharedAction" });
   });
 
   test("下部ドックの履歴・ランキングボタンが押下できる", () => {
@@ -152,6 +159,74 @@ describe("map controls", () => {
     });
 
     expect(onFriends).toHaveBeenCalledTimes(1);
+  });
+
+  test("完了シートのシェアと閉じるボタンが押下できる", async () => {
+    const { Share } = require("react-native");
+    const onClose = jest.fn();
+    let tree: renderer.ReactTestRenderer | undefined;
+    await act(async () => {
+      tree = renderer.create(
+        <CompleteSheet
+          result={{
+            dailyActivity: {
+              id: "daily-today",
+              localDate: "2026-05-04",
+              timezone: "Asia/Tokyo",
+              status: "open",
+              stats: { elapsed: "進行中", distanceKm: 5.2, previewAreaKm2: 2.3 }
+            },
+            stats: { elapsed: "進行中", distanceKm: 5.2, previewAreaKm2: 2.3 },
+            territory: activity
+          }}
+          onClose={onClose}
+        />
+      );
+    });
+
+    await act(async () => {
+      tree?.root.findByProps({ testID: "complete-share-button" }).props.onPress();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(Share.share).toHaveBeenCalledWith({
+      message: "TERRIで今日のテリトリーを広げました: 3.4km / 1.20km2"
+    });
+
+    act(() => {
+      tree?.root.findByProps({ testID: "complete-close-button" }).props.onPress();
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  test("完了シートのシェア失敗時はエラーを表示する", async () => {
+    const { Share } = require("react-native");
+    Share.share.mockRejectedValueOnce(new Error("共有できませんでした"));
+    let tree: renderer.ReactTestRenderer | undefined;
+    await act(async () => {
+      tree = renderer.create(
+        <CompleteSheet
+          result={{
+            dailyActivity: {
+              id: "daily-today",
+              localDate: "2026-05-04",
+              timezone: "Asia/Tokyo",
+              status: "open",
+              stats: { elapsed: "進行中", distanceKm: 5.2, previewAreaKm2: 2.3 }
+            },
+            stats: { elapsed: "進行中", distanceKm: 5.2, previewAreaKm2: 2.3 },
+            territory: activity
+          }}
+          onClose={jest.fn()}
+        />
+      );
+    });
+
+    await act(async () => {
+      tree?.root.findByProps({ testID: "complete-share-button" }).props.onPress();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(tree?.root.findByProps({ testID: "complete-share-error" }).props.children).toBe("共有できませんでした");
   });
 
   test("ランキング前週比は正負ゼロを実値で表示する", () => {
