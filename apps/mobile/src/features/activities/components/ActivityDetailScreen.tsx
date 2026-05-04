@@ -8,12 +8,15 @@ import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { useTerriRepository } from "@/lib/repositories/RepositoryProvider";
 import { colors, font, shadow } from "@/theme/tokens";
 import { formatAverageSpeed } from "../activityMetrics";
+import { shareTerritorySummary } from "../activityShare";
 
 export function ActivityDetailScreen() {
   const repository = useTerriRepository();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [activity, setActivity] = useState<TerritorySummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -21,7 +24,9 @@ export function ActivityDetailScreen() {
     repository
       .getActivity(id)
       .then((nextActivity) => {
-        if (active) setActivity(nextActivity);
+        if (!active) return;
+        setActivity(nextActivity);
+        setError(null);
       })
       .catch((nextError: unknown) => {
         if (active) setError(nextError instanceof Error ? nextError.message : "履歴を読み込めませんでした");
@@ -32,13 +37,33 @@ export function ActivityDetailScreen() {
     };
   }, [id, repository]);
 
+  const shareActivity = async () => {
+    if (!activity || error || sharing) return;
+    setSharing(true);
+    setShareError(null);
+    try {
+      await shareTerritorySummary(activity);
+    } catch (nextError) {
+      setShareError(nextError instanceof Error ? nextError.message : "シェアできませんでした");
+    } finally {
+      setSharing(false);
+    }
+  };
+
   return (
     <View style={styles.screen}>
       <MapSurface friends={[]} showRoute />
-      <TouchableOpacity style={[styles.roundButton, styles.back]} onPress={() => router.back()}>
+      <TouchableOpacity accessibilityLabel="活動詳細から戻る" accessibilityRole="button" style={[styles.roundButton, styles.back]} onPress={() => router.back()} testID="activity-back-button">
         <Text style={styles.icon}>←</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={[styles.roundButton, styles.share]}>
+      <TouchableOpacity
+        accessibilityLabel="活動をシェア"
+        accessibilityRole="button"
+        disabled={!activity || Boolean(error) || sharing}
+        onPress={() => void shareActivity()}
+        style={[styles.roundButton, styles.share, (!activity || Boolean(error) || sharing) && styles.disabledButton]}
+        testID="activity-share-icon-button"
+      >
         <Text style={styles.icon}>⇧</Text>
       </TouchableOpacity>
       <BottomSheet height="42%">
@@ -53,7 +78,8 @@ export function ActivityDetailScreen() {
               <Metric icon="⬚" value={`${(activity?.areaKm2 ?? 0).toFixed(2)} km²`} />
               <Metric icon="ϟ" value={activity ? formatAverageSpeed(activity.distanceKm, activity.duration) : "-- km/h"} />
             </View>
-            <PrimaryButton>📷 シェアする</PrimaryButton>
+            {shareError ? <Text style={styles.shareError} testID="activity-share-error">{shareError}</Text> : null}
+            <PrimaryButton disabled={!activity || sharing} onPress={() => void shareActivity()} testID="activity-share-button">{sharing ? "共有中" : "📷 シェアする"}</PrimaryButton>
           </>
         )}
       </BottomSheet>
@@ -91,6 +117,9 @@ const styles = StyleSheet.create({
   },
   share: {
     right: 24
+  },
+  disabledButton: {
+    opacity: 0.48
   },
   icon: {
     fontSize: 38,
@@ -135,6 +164,13 @@ const styles = StyleSheet.create({
     marginTop: 72,
     textAlign: "center",
     fontSize: 24,
+    fontWeight: font.heavy,
+    color: colors.coral
+  },
+  shareError: {
+    marginBottom: 14,
+    fontSize: 16,
+    lineHeight: 22,
     fontWeight: font.heavy,
     color: colors.coral
   }

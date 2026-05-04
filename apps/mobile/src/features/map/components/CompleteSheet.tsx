@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { Text, View } from "react-native";
 import type { LiveTerritoryResult } from "@terri/shared";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { Pill } from "@/components/ui/Pill";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
+import { shareTerritorySummary } from "@/features/activities/activityShare";
 import { colors } from "@/theme/tokens";
 import { styles } from "./HomeMapScreen.styles";
 
@@ -12,6 +14,22 @@ type CompleteSheetProps = {
 };
 
 export function CompleteSheet({ result, onClose }: CompleteSheetProps) {
+  const [shareError, setShareError] = useState<string | undefined>();
+  const [sharing, setSharing] = useState(false);
+
+  const shareResult = async () => {
+    if (sharing) return;
+    setSharing(true);
+    setShareError(undefined);
+    try {
+      await shareTerritorySummary(result.territory);
+    } catch (error) {
+      setShareError(error instanceof Error ? error.message : "シェアできませんでした");
+    } finally {
+      setSharing(false);
+    }
+  };
+
   return (
     <BottomSheet height="68%">
       <View style={styles.confetti}>
@@ -28,9 +46,10 @@ export function CompleteSheet({ result, onClose }: CompleteSheetProps) {
         <Pill tone="mint">時間 {result.territory.duration}</Pill>
         <Pill tone="lavender">面積 {result.territory.areaKm2.toFixed(2)}km²</Pill>
       </View>
-      <PrimaryButton variant="outline">Instagramにシェア</PrimaryButton>
+      {shareError ? <Text style={styles.completeShareError} testID="complete-share-error">{shareError}</Text> : null}
+      <PrimaryButton disabled={sharing} onPress={() => void shareResult()} testID="complete-share-button" variant="outline">{sharing ? "共有中" : "Instagramにシェア"}</PrimaryButton>
       <View style={{ height: 16 }} />
-      <PrimaryButton onPress={onClose}>閉じる</PrimaryButton>
+      <PrimaryButton onPress={onClose} testID="complete-close-button">閉じる</PrimaryButton>
     </BottomSheet>
   );
 }

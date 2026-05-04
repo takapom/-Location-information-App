@@ -641,5 +641,12 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 8
+  },
+  completeShareError: {
+    marginBottom: 12,
+    textAlign: "center",
+    fontSize: 15,
+    fontWeight: font.heavy,
+    color: colors.coral
   }
 });
