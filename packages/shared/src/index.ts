@@ -8,6 +8,7 @@ export type TerritorySummary = {
   duration: string;
   color: TerritoryColor;
   createdAtLabel: string;
+  polygon?: TerritoryGeometry;
 };
 
 export type DailyActivityStatus = "open" | "finalized" | "paused";

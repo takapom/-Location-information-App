@@ -23,6 +23,18 @@ const currentLocation = {
   recordedAt: "2026-04-26T03:00:00.000Z"
 };
 
+const polygon = {
+  type: "Polygon" as const,
+  coordinates: [
+    [
+      [139.7, 35.66],
+      [139.701, 35.66],
+      [139.701, 35.661],
+      [139.7, 35.66]
+    ]
+  ]
+};
+
 describe("liveTerritoryReducer", () => {
   test("権限確認後に領土化ON状態へ遷移する", () => {
     const checking = liveTerritoryReducer(initialLiveTerritoryState, { type: "CHECK_PERMISSION" });
@@ -51,6 +63,98 @@ describe("liveTerritoryReducer", () => {
 
     expect(withoutActivity.status).toBe("checkingPermission");
     expect(syncing.status).toBe("syncing");
+  });
+
+  test("同期成功はサーバーpolygonをlive previewへ反映する", () => {
+    const live = liveTerritoryReducer(initialLiveTerritoryState, { type: "PERMISSION_GRANTED", dailyActivity, currentLocation });
+    const syncing = liveTerritoryReducer(live, { type: "SYNC_REQUEST" });
+    const synced = liveTerritoryReducer(syncing, {
+      type: "SYNC_SUCCESS",
+      dailyActivity,
+      stats: { elapsed: "進行中", distanceKm: 0.4, previewAreaKm2: 0.02 },
+      livePreviewGeometry: polygon
+    });
+
+    expect(synced.status).toBe("live");
+    expect(synced.livePreviewGeometry).toEqual(polygon);
+  });
+
+  test("最終化中と完了後の古い同期成功は状態をliveへ戻さない", () => {
+    const live = liveTerritoryReducer(initialLiveTerritoryState, { type: "PERMISSION_GRANTED", dailyActivity, currentLocation });
+    const finalizing = liveTerritoryReducer(live, { type: "FINALIZE_REQUEST" });
+    const afterFinalizingSync = liveTerritoryReducer(finalizing, {
+      type: "SYNC_SUCCESS",
+      dailyActivity,
+      stats: dailyActivity.stats,
+      livePreviewGeometry: polygon
+    });
+    const completed = liveTerritoryReducer(live, {
+      type: "FINALIZE_SUCCESS",
+      result: {
+        dailyActivity,
+        territory: {
+          id: "today",
+          title: "今日",
+          areaKm2: 0.02,
+          distanceKm: 0.4,
+          duration: "完了",
+          color: "#F07060",
+          createdAtLabel: "今日",
+          polygon
+        }
+      }
+    });
+    const afterCompletedSync = liveTerritoryReducer(completed, {
+      type: "SYNC_SUCCESS",
+      dailyActivity,
+      stats: dailyActivity.stats,
+      livePreviewGeometry: polygon
+    });
+
+    expect(afterFinalizingSync.status).toBe("finalizing");
+    expect(afterCompletedSync.status).toBe("completed");
+  });
+
+  test("確定失敗はfinalizingに残さずliveへ戻して再試行できる", () => {
+    const live = liveTerritoryReducer(initialLiveTerritoryState, { type: "PERMISSION_GRANTED", dailyActivity, currentLocation });
+    const finalizing = liveTerritoryReducer(live, { type: "FINALIZE_REQUEST" });
+    const failed = liveTerritoryReducer(finalizing, { type: "FINALIZE_FAIL", message: "テリトリーを確定できませんでした" });
+
+    expect(failed.status).toBe("live");
+    expect(failed.dailyActivity).toEqual(dailyActivity);
+    expect(failed.errorMessage).toBe("テリトリーを確定できませんでした");
+  });
+
+  test("活動切り替えと確定成功でpreview状態を消す", () => {
+    const previewing = liveTerritoryReducer(initialLiveTerritoryState, {
+      type: "TRACKING_PREVIEW_UPDATED",
+      trackingRoute: [currentLocation],
+      livePreviewGeometry: polygon,
+      previewAreaM2: 20_000
+    });
+    const changed = liveTerritoryReducer(previewing, { type: "ACTIVITY_CHANGED" });
+    const completed = liveTerritoryReducer(previewing, {
+      type: "FINALIZE_SUCCESS",
+      result: {
+        dailyActivity,
+        territory: {
+          id: "today",
+          title: "今日",
+          areaKm2: 0.02,
+          distanceKm: 0.4,
+          duration: "完了",
+          color: "#F07060",
+          createdAtLabel: "今日",
+          polygon
+        }
+      }
+    });
+
+    expect(changed.trackingRoute).toEqual([]);
+    expect(changed.livePreviewGeometry).toBeUndefined();
+    expect(changed.stats.previewAreaKm2).toBe(0);
+    expect(completed.trackingRoute).toEqual([]);
+    expect(completed.livePreviewGeometry).toBeUndefined();
   });
 
   test("位置情報を取得できない状態では古い現在地を残さない", () => {
