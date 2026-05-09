@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Text, View } from "react-native";
-import type { LiveTerritoryResult } from "@terri/shared";
+import type { FinalizedDailyActivity } from "@terri/shared";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { Pill } from "@/components/ui/Pill";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
@@ -9,7 +9,7 @@ import { colors } from "@/theme/tokens";
 import { styles } from "./HomeMapScreen.styles";
 
 type CompleteSheetProps = {
-  result: LiveTerritoryResult;
+  result: FinalizedDailyActivity;
   onClose: () => void;
 };
 
@@ -31,7 +31,7 @@ export function CompleteSheet({ result, onClose }: CompleteSheetProps) {
   };
 
   return (
-    <BottomSheet height="68%">
+    <BottomSheet height="68%" onClose={onClose}>
       <View style={styles.confetti}>
         {Array.from({ length: 28 }).map((_, index) => (
           <View key={index} style={[styles.confettiPiece, { left: `${(index * 13) % 94}%`, top: `${(index * 29) % 90}%`, backgroundColor: [colors.coral, colors.mint, colors.lavender, colors.sky, colors.yellow][index % 5] }]} />

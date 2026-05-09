@@ -1,5 +1,6 @@
 import * as Clipboard from "expo-clipboard";
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useRef } from "react";
+import { ScrollView, Text, TextInput, TouchableOpacity, View, type GestureResponderEvent } from "react-native";
 import type { FriendPresence } from "@terri/shared";
 import { Avatar } from "@/components/ui/Avatar";
 import { Pill } from "@/components/ui/Pill";
@@ -15,7 +16,10 @@ type FriendsModalProps = {
   onClose: () => void;
 };
 
+const CLOSE_DRAG_DISTANCE = 72;
+
 export function FriendsModal({ friends, onFriendsChange, onClose }: FriendsModalProps) {
+  const dragStartYRef = useRef<number | undefined>(undefined);
   const inviteUrl = "https://app.link/share...xyz";
   const friendSearch = useFriendSearch();
   const friendRequests = useFriendRequests();
@@ -31,15 +35,37 @@ export function FriendsModal({ friends, onFriendsChange, onClose }: FriendsModal
       onFriendsChange?.(response.friends);
     }
   };
+  const startCloseDrag = (event: GestureResponderEvent) => {
+    dragStartYRef.current = event.nativeEvent.pageY;
+  };
+  const releaseCloseDrag = (event: GestureResponderEvent) => {
+    const startY = dragStartYRef.current;
+    dragStartYRef.current = undefined;
+    if (startY === undefined) return;
+    if (event.nativeEvent.pageY - startY >= CLOSE_DRAG_DISTANCE) {
+      onClose();
+    }
+  };
 
   return (
     <View style={styles.modal}>
       <View style={styles.decorCoral} />
       <View style={styles.decorMint} />
+      <View
+        accessibilityLabel="友達画面を下に下げて閉じる"
+        accessibilityRole="button"
+        onResponderGrant={startCloseDrag}
+        onResponderRelease={releaseCloseDrag}
+        onStartShouldSetResponder={() => true}
+        style={styles.modalDragHandleHitArea}
+        testID="friends-drag-close-handle"
+      >
+        <View style={styles.modalDragHandle} />
+      </View>
       <TouchableOpacity accessibilityLabel="友達画面を閉じる" accessibilityRole="button" hitSlop={12} onPress={onClose} style={styles.modalClose} testID="friends-close-button">
         <Text style={styles.modalCloseText}>×</Text>
       </TouchableOpacity>
-      <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalScrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView keyboardShouldPersistTaps="handled" style={styles.modalScroll} contentContainerStyle={styles.modalScrollContent} showsVerticalScrollIndicator testID="friends-scroll-view">
         <Text style={styles.modalTitle}>友達</Text>
         {friendRequests.incomingRequests.length > 0 ? (
           <View style={styles.friendRequestSection}>
@@ -133,7 +159,7 @@ export function FriendsModal({ friends, onFriendsChange, onClose }: FriendsModal
             </View>
           );
         })}
-        {friends.slice(0, 3).map((friend) => (
+        {friends.map((friend) => (
           <View key={friend.id} style={styles.friendRow}>
             <Avatar initials={friend.initials} color={friend.color} size={72} active={friend.isActive} />
             <View style={{ flex: 1 }}>

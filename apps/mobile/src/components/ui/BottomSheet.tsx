@@ -1,11 +1,39 @@
-import { StyleSheet, View } from "react-native";
+import { useRef } from "react";
+import { StyleSheet, View, type GestureResponderEvent } from "react-native";
 import type { PropsWithChildren } from "react";
 import { colors, shadow } from "@/theme/tokens";
 
-export function BottomSheet({ children, height = "58%" }: PropsWithChildren<{ height?: `${number}%` }>) {
+const CLOSE_DRAG_DISTANCE = 64;
+
+export function BottomSheet({ children, height = "58%", onClose }: PropsWithChildren<{ height?: `${number}%`; onClose?: () => void }>) {
+  const dragStartYRef = useRef<number | undefined>(undefined);
+
+  const startDrag = (event: GestureResponderEvent) => {
+    dragStartYRef.current = event.nativeEvent.pageY;
+  };
+
+  const releaseDrag = (event: GestureResponderEvent) => {
+    const startY = dragStartYRef.current;
+    dragStartYRef.current = undefined;
+    if (startY === undefined) return;
+    if (event.nativeEvent.pageY - startY >= CLOSE_DRAG_DISTANCE) {
+      onClose?.();
+    }
+  };
+
   return (
     <View style={[styles.sheet, { height }]}>
-      <View style={styles.handle} />
+      <View
+        accessibilityLabel="シートを下に下げて閉じる"
+        accessibilityRole={onClose ? "button" : undefined}
+        onResponderGrant={startDrag}
+        onResponderRelease={releaseDrag}
+        onStartShouldSetResponder={() => Boolean(onClose)}
+        style={styles.handleHitArea}
+        testID="bottom-sheet-drag-handle"
+      >
+        <View style={styles.handle} />
+      </View>
       {children}
     </View>
   );
@@ -27,10 +55,17 @@ const styles = StyleSheet.create({
     ...shadow,
     elevation: 18
   },
-  handle: {
+  handleHitArea: {
     position: "absolute",
-    top: 12,
+    top: 0,
     alignSelf: "center",
+    width: 120,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2
+  },
+  handle: {
     width: 54,
     height: 6,
     borderRadius: 3,

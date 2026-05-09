@@ -114,21 +114,51 @@ describe("map controls", () => {
     expect(onRanking).toHaveBeenCalledTimes(1);
   });
 
-  test("位置情報案内と同期ボタンが押下できる", () => {
+  test("位置情報案内を押下でき、停止系状態では同期ボタンが無効になる", () => {
     const onRequestPermission = jest.fn();
     const onSync = jest.fn();
+    const onFinalize = jest.fn();
     let tree: renderer.ReactTestRenderer | undefined;
     act(() => {
-      tree = renderer.create(<LiveTerritoryPanel stats={{ elapsed: "確認中", distanceKm: 0, previewAreaKm2: 0 }} status="permissionDenied" onRequestPermission={onRequestPermission} onSync={onSync} />);
+      tree = renderer.create(<LiveTerritoryPanel stats={{ elapsed: "確認中", distanceKm: 0, previewAreaKm2: 0 }} status="permissionDenied" onRequestPermission={onRequestPermission} onSync={onSync} onFinalize={onFinalize} />);
     });
 
     act(() => {
       tree?.root.findByProps({ testID: "location-settings-button" }).props.onPress();
-      tree?.root.findByProps({ testID: "sync-territory-button" }).props.onPress();
     });
 
     expect(onRequestPermission).toHaveBeenCalledTimes(1);
+    expect(tree?.root.findByProps({ testID: "sync-territory-button" }).props.disabled).toBe(true);
+    expect(onSync).not.toHaveBeenCalled();
+  });
+
+  test("領土化中は同期ボタンを押下できる", () => {
+    const onSync = jest.fn();
+    let tree: renderer.ReactTestRenderer | undefined;
+    act(() => {
+      tree = renderer.create(<LiveTerritoryPanel stats={{ elapsed: "進行中", distanceKm: 0.3, previewAreaKm2: 0.01 }} status="live" onRequestPermission={jest.fn()} onSync={onSync} onFinalize={jest.fn()} />);
+    });
+
+    expect(tree?.root.findByProps({ testID: "sync-territory-button" }).props.disabled).toBe(false);
+    act(() => {
+      tree?.root.findByProps({ testID: "sync-territory-button" }).props.onPress();
+    });
+
     expect(onSync).toHaveBeenCalledTimes(1);
+  });
+
+  test("領土化中はSTOPで確定処理を呼べる", () => {
+    const onFinalize = jest.fn();
+    let tree: renderer.ReactTestRenderer | undefined;
+    act(() => {
+      tree = renderer.create(<LiveTerritoryPanel stats={{ elapsed: "進行中", distanceKm: 0.3, previewAreaKm2: 0.01 }} status="live" onRequestPermission={jest.fn()} onSync={jest.fn()} onFinalize={onFinalize} />);
+    });
+
+    act(() => {
+      tree?.root.findByProps({ testID: "finalize-territory-button" }).props.onPress();
+    });
+
+    expect(onFinalize).toHaveBeenCalledTimes(1);
   });
 
   test("履歴シートの閉じる・活動カードが押下できる", () => {
@@ -149,16 +179,36 @@ describe("map controls", () => {
 
   test("ランキングから友達画面を開ける", () => {
     const onFriends = jest.fn();
+    const onClose = jest.fn();
     let tree: renderer.ReactTestRenderer | undefined;
     act(() => {
-      tree = renderer.create(<RankingSheet rankings={[ranking]} onFriends={onFriends} />);
+      tree = renderer.create(<RankingSheet rankings={[ranking]} onClose={onClose} onFriends={onFriends} />);
     });
 
     act(() => {
       tree?.root.findByProps({ testID: "ranking-friends-button" }).props.onPress();
+      tree?.root.findByProps({ testID: "ranking-close-button" }).props.onPress();
     });
 
     expect(onFriends).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(tree?.root.findByProps({ testID: "ranking-scroll-view" })).toBeTruthy();
+  });
+
+  test("ランキングシートは下に下げて閉じられる", () => {
+    const onClose = jest.fn();
+    let tree: renderer.ReactTestRenderer | undefined;
+    act(() => {
+      tree = renderer.create(<RankingSheet rankings={[ranking]} onClose={onClose} onFriends={jest.fn()} />);
+    });
+
+    const handle = tree?.root.findByProps({ testID: "bottom-sheet-drag-handle" });
+    act(() => {
+      handle?.props.onResponderGrant({ nativeEvent: { pageY: 10 } });
+      handle?.props.onResponderRelease({ nativeEvent: { pageY: 90 } });
+    });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   test("完了シートのシェアと閉じるボタンが押下できる", async () => {
@@ -176,7 +226,6 @@ describe("map controls", () => {
               status: "open",
               stats: { elapsed: "進行中", distanceKm: 5.2, previewAreaKm2: 2.3 }
             },
-            stats: { elapsed: "進行中", distanceKm: 5.2, previewAreaKm2: 2.3 },
             territory: activity
           }}
           onClose={onClose}
@@ -213,7 +262,6 @@ describe("map controls", () => {
               status: "open",
               stats: { elapsed: "進行中", distanceKm: 5.2, previewAreaKm2: 2.3 }
             },
-            stats: { elapsed: "進行中", distanceKm: 5.2, previewAreaKm2: 2.3 },
             territory: activity
           }}
           onClose={jest.fn()}
@@ -254,6 +302,33 @@ describe("map controls", () => {
 
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(mockSetStringAsync).toHaveBeenCalledWith("https://app.link/share...xyz");
+    expect(tree?.root.findByProps({ testID: "friends-scroll-view" })).toBeTruthy();
+  });
+
+  test("友達モーダルは下に下げて閉じられ、友達一覧を全件表示する", async () => {
+    const onClose = jest.fn();
+    const friends = [
+      friend,
+      { ...friend, id: "riku", displayName: "Riku", initials: "R", color: colors.coral },
+      { ...friend, id: "yui", displayName: "Yui", initials: "Y", color: colors.lavender },
+      { ...friend, id: "mio", displayName: "Mio", initials: "M", color: colors.sky }
+    ];
+    let tree: renderer.ReactTestRenderer | undefined;
+    await act(async () => {
+      tree = renderer.create(<FriendsModal friends={friends} onClose={onClose} />);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+
+    const output = JSON.stringify(tree?.toJSON());
+    expect(output).toContain("Mio");
+
+    const handle = tree?.root.findByProps({ testID: "friends-drag-close-handle" });
+    act(() => {
+      handle?.props.onResponderGrant({ nativeEvent: { pageY: 20 } });
+      handle?.props.onResponderRelease({ nativeEvent: { pageY: 100 } });
+    });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   test("友達ID検索から友達申請を送れる", async () => {

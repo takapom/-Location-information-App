@@ -2,6 +2,24 @@ import renderer, { act } from "react-test-renderer";
 import { HomeMapScreen } from "@/features/map/components/HomeMapScreen";
 
 const mockPush = jest.fn();
+const mockFinalize = jest.fn();
+const mockLivePreviewGeometry = {
+  type: "Polygon" as const,
+  coordinates: [
+    [
+      [139.7, 35.66],
+      [139.701, 35.66],
+      [139.701, 35.661],
+      [139.7, 35.66]
+    ]
+  ]
+};
+let mockLiveTerritoryState: any = {
+  status: "live",
+  stats: { elapsed: "進行中", distanceKm: 0, previewAreaKm2: 0 },
+  trackingRoute: [],
+  currentLocation: { latitude: 35.66, longitude: 139.7, accuracyM: 12, recordedAt: "2026-04-28T00:00:00.000Z" }
+};
 
 jest.mock("expo-router", () => ({
   router: {
@@ -49,7 +67,7 @@ jest.mock("react-native", () => {
 jest.mock("@/components/map/MapSurface", () => {
   const React = require("react");
   return {
-    MapSurface: () => React.createElement("MapSurface", { testID: "map-surface" })
+    MapSurface: (props: unknown) => React.createElement("MapSurface", { ...(props as object), testID: "map-surface" })
   };
 });
 
@@ -58,11 +76,8 @@ jest.mock("@/features/tracking/hooks/useLiveTerritory", () => ({
     activate: jest.fn(),
     reset: jest.fn(),
     sync: jest.fn(),
-    state: {
-      status: "live",
-      stats: { elapsed: "進行中", distanceKm: 0, previewAreaKm2: 0 },
-      currentLocation: { latitude: 35.66, longitude: 139.7, accuracyM: 12, recordedAt: "2026-04-28T00:00:00.000Z" }
-    }
+    finalize: mockFinalize,
+    state: mockLiveTerritoryState
   })
 }));
 
@@ -93,6 +108,13 @@ jest.mock("@/lib/repositories/RepositoryProvider", () => ({
 describe("HomeMapScreen controls", () => {
   beforeEach(() => {
     mockPush.mockClear();
+    mockFinalize.mockClear();
+    mockLiveTerritoryState = {
+      status: "live",
+      stats: { elapsed: "進行中", distanceKm: 0, previewAreaKm2: 0 },
+      trackingRoute: [],
+      currentLocation: { latitude: 35.66, longitude: 139.7, accuracyM: 12, recordedAt: "2026-04-28T00:00:00.000Z" }
+    };
   });
 
   test("地図画面の主要ボタン導線が押下できる", () => {
@@ -118,5 +140,42 @@ describe("HomeMapScreen controls", () => {
       tree?.root.findByProps({ testID: "ranking-friends-button" }).props.onPress();
     });
     expect(tree?.root.findByProps({ testID: "friends-close-button" })).toBeTruthy();
+  });
+
+  test("完了状態の地図はlive previewを確定陣地のfallbackにしない", () => {
+    mockLiveTerritoryState = {
+      status: "completed",
+      stats: { elapsed: "完了", distanceKm: 1, previewAreaKm2: 0.1 },
+      trackingRoute: [],
+      currentLocation: { latitude: 35.66, longitude: 139.7, accuracyM: 12, recordedAt: "2026-04-28T00:00:00.000Z" },
+      livePreviewGeometry: mockLivePreviewGeometry,
+      finalizedResult: {
+        dailyActivity: {
+          id: "daily-2026-04-28",
+          localDate: "2026-04-28",
+          timezone: "Asia/Tokyo",
+          status: "finalized",
+          stats: { elapsed: "完了", distanceKm: 1, previewAreaKm2: 0.1 }
+        },
+        territory: {
+          id: "today",
+          title: "今日",
+          areaKm2: 0.1,
+          distanceKm: 1,
+          duration: "完了",
+          color: "#F07060",
+          createdAtLabel: "今日"
+        }
+      }
+    };
+    let tree: renderer.ReactTestRenderer | undefined;
+    act(() => {
+      tree = renderer.create(<HomeMapScreen />);
+    });
+
+    const scene = tree?.root.findByProps({ testID: "map-surface" }).props.scene;
+
+    expect(scene.layers.livePreview).toBeUndefined();
+    expect(scene.layers.ownFinalTerritories).toEqual([]);
   });
 });

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import type { TerritoryColor, UserProfile } from "@terri/shared";
 import { useAuth } from "@/features/auth/AuthProvider";
@@ -78,44 +78,46 @@ export function ProfileScreen() {
       <TouchableOpacity onPress={close} style={styles.close}>
         <Text style={[styles.closeText, isInitialSetup && styles.doneText]}>{isInitialSetup ? "完了" : "×"}</Text>
       </TouchableOpacity>
-      <View style={styles.header}>
-        <Avatar initials={profile.initials} color={profile.territoryColor} size={122} active />
-        <Text style={styles.name}>{profile.name} ✎</Text>
-        <Pill>🚶 {profile.emojiStatus}</Pill>
-      </View>
-      <View style={styles.statsRow}>
-        <View style={[styles.bigStat, { backgroundColor: colors.coral }]}>
-          <Text style={styles.bigStatLabel}>🗺 総面積</Text>
-          <Text style={styles.bigStatValue}>{profile.totalAreaKm2.toFixed(1)} km²</Text>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator testID="profile-scroll-view">
+        <View style={styles.header}>
+          <Avatar initials={profile.initials} color={profile.territoryColor} size={122} active />
+          <Text style={styles.name}>{profile.name} ✎</Text>
+          <Pill>🚶 {profile.emojiStatus}</Pill>
         </View>
-        <View style={[styles.bigStat, { backgroundColor: colors.mint }]}>
-          <Text style={styles.bigStatLabel}>🚶 総距離</Text>
-          <Text style={styles.bigStatValue}>{profile.totalDistanceKm} km</Text>
+        <View style={styles.statsRow}>
+          <View style={[styles.bigStat, { backgroundColor: colors.coral }]}>
+            <Text style={styles.bigStatLabel}>🗺 総面積</Text>
+            <Text style={styles.bigStatValue}>{profile.totalAreaKm2.toFixed(1)} km²</Text>
+          </View>
+          <View style={[styles.bigStat, { backgroundColor: colors.mint }]}>
+            <Text style={styles.bigStatLabel}>🚶 総距離</Text>
+            <Text style={styles.bigStatValue}>{profile.totalDistanceKm} km</Text>
+          </View>
         </View>
-      </View>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Settings</Text>
-        <Setting label="🔔 通知" value={profile.notificationsEnabled} onChange={(value) => updateSetting({ notificationsEnabled: value })} />
-        <Setting label="📍 バックグラウンド" value={profile.backgroundTrackingEnabled} onChange={(value) => updateSetting({ backgroundTrackingEnabled: value })} />
-        <Setting label="テリトリー生成" value={profile.territoryCaptureEnabled} onChange={(value) => updateSetting({ territoryCaptureEnabled: value })} />
-        <Setting label="現在地共有" value={profile.locationSharingEnabled} onChange={(value) => updateSetting({ locationSharingEnabled: value })} />
-      </View>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>🎨 陣地の色</Text>
-        <View style={styles.swatches}>
-          {territoryColors.map((color) => (
-            <TouchableOpacity key={color} onPress={() => updateColor(color)} style={[styles.swatch, { backgroundColor: color }, profile.territoryColor === color && styles.selectedSwatch]}>
-              {profile.territoryColor === color ? <Text style={styles.check}>✓</Text> : null}
-            </TouchableOpacity>
-          ))}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Settings</Text>
+          <Setting label="🔔 通知" value={profile.notificationsEnabled} onChange={(value) => updateSetting({ notificationsEnabled: value })} />
+          <Setting label="📍 バックグラウンド" value={profile.backgroundTrackingEnabled} onChange={(value) => updateSetting({ backgroundTrackingEnabled: value })} />
+          <Setting label="テリトリー生成" value={profile.territoryCaptureEnabled} onChange={(value) => updateSetting({ territoryCaptureEnabled: value })} />
+          <Setting label="現在地共有" value={profile.locationSharingEnabled} onChange={(value) => updateSetting({ locationSharingEnabled: value })} />
         </View>
-      </View>
-      {isInitialSetup ? (
-        <PrimaryButton onPress={() => router.replace("/map")} variant="dark">
-          この設定ではじめる
-        </PrimaryButton>
-      ) : null}
-      <PrimaryButton onPress={signOut} variant="line">ログアウト</PrimaryButton>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>🎨 陣地の色</Text>
+          <View style={styles.swatches}>
+            {territoryColors.map((color) => (
+              <TouchableOpacity key={color} onPress={() => updateColor(color)} style={[styles.swatch, { backgroundColor: color }, profile.territoryColor === color && styles.selectedSwatch]}>
+                {profile.territoryColor === color ? <Text style={styles.check}>✓</Text> : null}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+        {isInitialSetup ? (
+          <PrimaryButton onPress={() => router.replace("/map")} variant="dark">
+            この設定ではじめる
+          </PrimaryButton>
+        ) : null}
+        <PrimaryButton onPress={signOut} variant="line">ログアウト</PrimaryButton>
+      </ScrollView>
     </View>
   );
 }
@@ -135,7 +137,9 @@ function Setting({ label, value, onChange }: { label: string; value: boolean; on
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surface
+  },
+  scrollContent: {
     paddingHorizontal: 28,
     paddingTop: 82,
     paddingBottom: 36

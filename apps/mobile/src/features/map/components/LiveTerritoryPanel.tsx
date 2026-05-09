@@ -1,7 +1,7 @@
 import { Linking, Platform, Text, TouchableOpacity, View } from "react-native";
 import type { LiveTerritoryStats } from "@terri/shared";
 import type { LiveTerritoryStatus } from "@/features/tracking/services/liveTerritoryState";
-import { getLiveTerritoryStatusLabel, shouldShowLocationPermissionPrompt } from "@/features/tracking/services/liveTerritoryState";
+import { canSyncLiveTerritoryStatus, getLiveTerritoryStatusLabel, shouldShowLocationPermissionPrompt } from "@/features/tracking/services/liveTerritoryState";
 import { styles } from "./HomeMapScreen.styles";
 
 type LiveTerritoryPanelProps = {
@@ -9,10 +9,13 @@ type LiveTerritoryPanelProps = {
   status: LiveTerritoryStatus;
   onRequestPermission: () => void;
   onSync: () => void;
+  onFinalize: () => void;
 };
 
-export function LiveTerritoryPanel({ stats, status, onRequestPermission, onSync }: LiveTerritoryPanelProps) {
-  const syncing = status === "syncing" || status === "checkingPermission";
+export function LiveTerritoryPanel({ stats, status, onRequestPermission, onSync, onFinalize }: LiveTerritoryPanelProps) {
+  const syncing = status === "syncing";
+  const canSync = canSyncLiveTerritoryStatus(status);
+  const canFinalize = status === "live" || status === "syncing";
   const showPermissionPrompt = shouldShowLocationPermissionPrompt(status);
   const requestPermission = () => {
     if (Platform.OS === "web") {
@@ -41,10 +44,17 @@ export function LiveTerritoryPanel({ stats, status, onRequestPermission, onSync 
         <Stat label="距離" value={`${stats.distanceKm.toFixed(1)} km`} />
         <Divider />
         <Stat label="面積" value={`${stats.previewAreaKm2.toFixed(2)} km²`} />
-        <TouchableOpacity accessibilityRole="button" disabled={syncing} onPress={onSync} style={[styles.syncButton, syncing && { opacity: 0.7 }]} testID="sync-territory-button">
+        <TouchableOpacity accessibilityRole="button" disabled={!canSync} onPress={onSync} style={[styles.syncButton, !canSync && { opacity: 0.7 }]} testID="sync-territory-button">
           <Text style={styles.syncText}>{syncing ? "同期中" : "同期"}</Text>
         </TouchableOpacity>
       </View>
+      {canFinalize || status === "finalizing" ? (
+        <View style={styles.stopRow}>
+          <TouchableOpacity accessibilityRole="button" disabled={!canFinalize} onPress={onFinalize} style={[styles.stopButton, !canFinalize && { opacity: 0.72 }]} testID="finalize-territory-button">
+            <Text style={styles.stopText}>{status === "finalizing" ? "確定中" : "STOP"}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
     </View>
   );
 }

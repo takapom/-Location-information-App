@@ -305,11 +305,18 @@ export const styles = StyleSheet.create({
     color: colors.muted
   },
   rankingTitle: {
-    marginTop: 20,
-    textAlign: "center",
+    flex: 1,
+    minWidth: 0,
     fontSize: 28,
     fontWeight: font.heavy,
     color: colors.ink
+  },
+  rankingScroll: {
+    flex: 1,
+    marginTop: 12
+  },
+  rankingScrollContent: {
+    paddingBottom: 18
   },
   podium: {
     marginTop: 18,
@@ -389,6 +396,23 @@ export const styles = StyleSheet.create({
   },
   modalScrollContent: {
     paddingBottom: 36
+  },
+  modalDragHandleHitArea: {
+    position: "absolute",
+    top: 18,
+    alignSelf: "center",
+    width: 132,
+    height: 38,
+    zIndex: 2003,
+    elevation: 23,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  modalDragHandle: {
+    width: 54,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#C9C5C8"
   },
   decorCoral: {
     position: "absolute",

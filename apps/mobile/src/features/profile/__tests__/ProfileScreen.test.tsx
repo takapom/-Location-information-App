@@ -2,6 +2,7 @@ import renderer, { act } from "react-test-renderer";
 import { ProfileScreen } from "@/features/profile/components/ProfileScreen";
 import { RepositoryProvider } from "@/lib/repositories/RepositoryProvider";
 import type { TerriRepository } from "@/lib/repositories/terriRepository";
+import { colors } from "@/theme/tokens";
 
 const mockReplace = jest.fn();
 const mockUseAuth = jest.fn();
@@ -25,6 +26,9 @@ jest.mock("react-native", () => {
       create: (styles: unknown) => styles
     },
     Switch: (props: unknown) => React.createElement("Switch", props),
+    Pressable: ({ children, onPress, style, ...props }: { children?: React.ReactNode; onPress?: () => void; style?: unknown }) =>
+      React.createElement("Pressable", { ...props, onPress, style: typeof style === "function" ? style({ pressed: false }) : style }, children),
+    ScrollView: ({ children, ...props }: { children?: React.ReactNode }) => React.createElement("ScrollView", props, children),
     Text: ({ children, ...props }: { children?: React.ReactNode }) => React.createElement("Text", props, children),
     TouchableOpacity: ({ children, onPress, ...props }: { children?: React.ReactNode; onPress?: () => void }) =>
       React.createElement("TouchableOpacity", { ...props, onPress }, children),
@@ -104,5 +108,44 @@ describe("ProfileScreen", () => {
     });
 
     expect(JSON.stringify(tree?.toJSON())).toContain("Auth session missing!");
+  });
+
+  test("プロフィール本体はScrollViewで表示し、小さい画面でも設定とログアウトへ到達できる", async () => {
+    const repository = createRepository({
+      getProfile: jest.fn().mockResolvedValue({
+        id: "user-1",
+        name: "User",
+        initials: "U",
+        emojiStatus: "散歩中",
+        territoryColor: colors.coral,
+        totalAreaKm2: 12.3,
+        totalDistanceKm: 45.6,
+        notificationsEnabled: true,
+        backgroundTrackingEnabled: false,
+        locationSharingEnabled: true,
+        territoryCaptureEnabled: true
+      })
+    });
+    mockUseAuth.mockReturnValue({
+      enabled: true,
+      loading: false,
+      session: { user: { id: "user-1" } },
+      signOut: jest.fn()
+    });
+
+    let tree: renderer.ReactTestRenderer | undefined;
+    await act(async () => {
+      tree = renderer.create(
+        <RepositoryProvider repository={repository}>
+          <ProfileScreen />
+        </RepositoryProvider>
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(tree?.root.findByProps({ testID: "profile-scroll-view" })).toBeTruthy();
+    const output = JSON.stringify(tree?.toJSON());
+    expect(output).toContain("現在地共有");
+    expect(output).toContain("ログアウト");
   });
 });

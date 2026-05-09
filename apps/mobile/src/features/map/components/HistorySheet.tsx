@@ -12,7 +12,7 @@ type HistorySheetProps = {
 
 export function HistorySheet({ activities, onClose }: HistorySheetProps) {
   return (
-    <BottomSheet height="56%">
+    <BottomSheet height="56%" onClose={onClose}>
       <View style={styles.sheetHeader}>
         <Text style={styles.sheetTitle}>履歴</Text>
         <TouchableOpacity accessibilityLabel="履歴を閉じる" accessibilityRole="button" onPress={onClose} style={styles.closeCircle} testID="history-close-button">
