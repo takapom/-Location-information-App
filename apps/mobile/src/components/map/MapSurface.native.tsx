@@ -1,49 +1,51 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from "react";
-import { StyleSheet, Text, View, type NativeSyntheticEvent } from "react-native";
-import { Camera, GeoJSONSource, Layer, Map, Marker, type CameraRef, type ViewStateChangeEvent } from "@maplibre/maplibre-react-native";
+import { memo, useEffect, useMemo, useRef } from "react";
+import { StyleSheet, View } from "react-native";
+import MapView, { Marker, Polygon, Polyline } from "react-native-maps";
+import type { GeoPoint, TerritoryGeometry } from "@terri/shared";
 import { Avatar } from "@/components/ui/Avatar";
-import { colors, font, shadow } from "@/theme/tokens";
-import { MAP_INITIAL_ZOOM, MAP_MAX_ZOOM, MAP_MIN_ZOOM, shouldAutoCenterMap, toLatLngKey } from "./mapCamera";
-import {
-  buildNativeBaseTerritoryFeatures,
-  buildNativeFriendTerritoryFeatures,
-  buildNativeLivePreviewFeatures,
-  buildNativeRouteFeatures,
-  MAPLIBRE_OSM_RASTER_STYLE,
-  toNativeLngLat,
-  toNativeMapCenter
-} from "./mapNativeLayers";
-import type { MapSelfMarker, MapSurfaceProps } from "./mapTypes";
+import { colors } from "@/theme/tokens";
+import { MapChrome } from "./chrome/MapChrome";
+import { shouldAutoCenterMap, toLatLngKey } from "./mapCamera";
+import { buildTrackingRoute, SHIBUYA_CENTER, type LatLngTuple } from "./mapGeometry";
+import { buildMapSceneFromLegacyProps } from "./scene/mapSceneDefaults";
+import type { MapRouteFeature, MapSelfMarker, MapSurfaceProps, MapTerritoryFeature } from "./mapTypes";
 
-const defaultSelfMarker: MapSelfMarker = {
-  initials: "U",
-  color: colors.coral
+type MapCoordinate = {
+  latitude: number;
+  longitude: number;
 };
 
-export const MapSurface = memo(function MapSurface({
-  center,
-  currentLocation,
-  currentUser = defaultSelfMarker,
-  friends = [],
-  friendTerritories = [],
-  activeFriendCount = 0,
-  live = false,
-  showRoute = false
-}: MapSurfaceProps) {
-  const cameraRef = useRef<CameraRef | null>(null);
+type TerritoryPolygon = {
+  id: string;
+  color: string;
+  coordinates: MapCoordinate[];
+  holes?: MapCoordinate[][];
+};
+
+const INITIAL_REGION_DELTA = {
+  latitudeDelta: 0.018,
+  longitudeDelta: 0.018
+};
+
+export const MapSurface = memo(function MapSurface(props: MapSurfaceProps) {
+  const scene = props.scene ?? buildMapSceneFromLegacyProps(props);
+  const mapRef = useRef<MapView | null>(null);
   const userMovedMapRef = useRef(false);
-  const mapCenter = useMemo(() => toNativeMapCenter(center ?? currentLocation), [center, currentLocation]);
-  const mapCenterKey = useMemo(() => toLatLngKey([mapCenter[1], mapCenter[0]]), [mapCenter]);
+  const mapCenter = useMemo(() => toLatLngTuple(scene.viewport.center ?? scene.viewport.currentLocation), [scene.viewport.center, scene.viewport.currentLocation]);
+  const mapCenterKey = toLatLngKey(mapCenter);
   const currentCenterKeyRef = useRef(mapCenterKey);
-  const baseTerritories = useMemo(() => buildNativeBaseTerritoryFeatures(center ?? currentLocation), [center, currentLocation]);
-  const livePreview = useMemo(() => buildNativeLivePreviewFeatures(center ?? currentLocation, live), [center, currentLocation, live]);
-  const trackingRoute = useMemo(() => buildNativeRouteFeatures(center ?? currentLocation, showRoute), [center, currentLocation, showRoute]);
-  const friendTerritoryFeatures = useMemo(() => buildNativeFriendTerritoryFeatures(friendTerritories), [friendTerritories]);
-  const handleRegionWillChange = useCallback((event: NativeSyntheticEvent<ViewStateChangeEvent>) => {
-    if (event.nativeEvent?.userInteraction) {
-      userMovedMapRef.current = true;
-    }
-  }, []);
+  const initialRegion = useMemo(
+    () => ({
+      latitude: mapCenter[0],
+      longitude: mapCenter[1],
+      ...INITIAL_REGION_DELTA
+    }),
+    [mapCenter]
+  );
+  const ownTerritories = useMemo(() => scene.layers.ownFinalTerritories.flatMap(mapTerritoryToNativePolygons), [scene.layers.ownFinalTerritories]);
+  const friendTerritories = useMemo(() => scene.layers.friendFinalTerritories.flatMap(mapTerritoryToNativePolygons), [scene.layers.friendFinalTerritories]);
+  const livePreview = useMemo(() => (scene.layers.livePreview ? mapTerritoryToNativePolygons(scene.layers.livePreview) : []), [scene.layers.livePreview]);
+  const trackingRoute = useMemo(() => mapRouteToCoordinates(scene.layers.trackingRoute, mapCenter), [scene.layers.trackingRoute, mapCenter]);
 
   useEffect(() => {
     if (
@@ -57,107 +59,135 @@ export const MapSurface = memo(function MapSurface({
     }
 
     currentCenterKeyRef.current = mapCenterKey;
-    cameraRef.current?.easeTo({ center: mapCenter, duration: 450 });
+    mapRef.current?.animateToRegion(
+      {
+        latitude: mapCenter[0],
+        longitude: mapCenter[1],
+        ...INITIAL_REGION_DELTA
+      },
+      450
+    );
   }, [mapCenter, mapCenterKey]);
 
   return (
     <View style={styles.shell} testID="map-surface">
-      <Map
-        mapStyle={MAPLIBRE_OSM_RASTER_STYLE}
+      <MapView
+        ref={mapRef}
+        testID="native-standard-map"
         style={StyleSheet.absoluteFillObject}
-        attribution={false}
-        compass={false}
-        logo={false}
-        scaleBar={false}
-        androidView="surface"
-        dragPan
-        touchZoom
-        doubleTapZoom
-        doubleTapHoldZoom
-        onRegionWillChange={handleRegionWillChange}
+        mapType="standard"
+        initialRegion={initialRegion}
+        showsCompass={false}
+        showsScale={false}
+        showsBuildings
+        showsPointsOfInterest
+        scrollEnabled
+        zoomEnabled
+        pitchEnabled={false}
+        rotateEnabled={false}
+        toolbarEnabled={false}
+        onPanDrag={() => {
+          userMovedMapRef.current = true;
+        }}
       >
-        <Camera ref={cameraRef} initialViewState={{ center: mapCenter, zoom: MAP_INITIAL_ZOOM }} minZoom={MAP_MIN_ZOOM} maxZoom={MAP_MAX_ZOOM} />
-        <GeoJSONSource id="terri-native-base-territories" data={baseTerritories}>
-          <Layer
-            id="terri-native-base-territory-fill"
-            type="fill"
-            paint={{
-              "fill-color": ["get", "color"],
-              "fill-opacity": 0.15,
-              "fill-outline-color": ["get", "color"]
-            }}
+        {ownTerritories.map((territory) => (
+          <Polygon
+            key={territory.id}
+            coordinates={territory.coordinates}
+            holes={territory.holes}
+            strokeColor={territory.color}
+            fillColor={`${territory.color}33`}
+            strokeWidth={4}
           />
-        </GeoJSONSource>
-        <GeoJSONSource id="terri-native-friend-territories" data={friendTerritoryFeatures}>
-          <Layer
-            id="terri-native-friend-territory-fill"
-            type="fill"
-            paint={{
-              "fill-color": ["get", "color"],
-              "fill-opacity": 0.18,
-              "fill-outline-color": ["get", "color"]
-            }}
+        ))}
+        {friendTerritories.map((territory) => (
+          <Polygon
+            key={territory.id}
+            coordinates={territory.coordinates}
+            holes={territory.holes}
+            strokeColor={territory.color}
+            fillColor={`${territory.color}2B`}
+            strokeWidth={3}
           />
-        </GeoJSONSource>
-        <GeoJSONSource id="terri-native-live-preview" data={livePreview}>
-          <Layer
-            id="terri-native-live-preview-fill"
-            type="fill"
-            paint={{
-              "fill-color": colors.coral,
-              "fill-opacity": 0.1,
-              "fill-outline-color": colors.coral
-            }}
+        ))}
+        {livePreview.map((territory) => (
+          <Polygon
+            key={territory.id}
+            coordinates={territory.coordinates}
+            holes={territory.holes}
+            strokeColor={territory.color}
+            fillColor={`${territory.color}18`}
+            strokeWidth={3}
+            lineDashPattern={[10, 10]}
           />
-        </GeoJSONSource>
-        <GeoJSONSource id="terri-native-tracking-route" data={trackingRoute}>
-          <Layer
-            id="terri-native-tracking-route-line"
-            type="line"
-            paint={{
-              "line-color": colors.coral,
-              "line-opacity": 0.7,
-              "line-width": 6
-            }}
-            layout={{
-              "line-cap": "round",
-              "line-join": "round"
-            }}
-          />
-        </GeoJSONSource>
-        {friends.map((friend) => (
-          <Marker key={friend.id} id={`friend-${friend.id}`} lngLat={[friend.longitude, friend.latitude]} anchor="bottom">
+        ))}
+        {trackingRoute.length > 0 ? <Polyline coordinates={trackingRoute} strokeColor={`${colors.coral}CC`} strokeWidth={6} lineCap="round" lineJoin="round" /> : null}
+        {scene.viewport.currentLocation && scene.user.marker ? <SelfMarker coordinate={scene.viewport.currentLocation} marker={scene.user.marker} /> : null}
+        {scene.layers.friends.map((friend) => (
+          <Marker key={friend.id} identifier={`friend-${friend.id}`} coordinate={{ latitude: friend.latitude, longitude: friend.longitude }} anchor={{ x: 0.5, y: 0.5 }}>
             <View style={styles.friendMarker} testID={`friend-marker-${friend.id}`}>
               <View style={[styles.friendHalo, { borderColor: friend.color }]} />
               <Avatar initials={friend.initials} color={friend.color} size={friend.id === "taro" ? 74 : 58} active={friend.isActive} />
             </View>
           </Marker>
         ))}
-        {currentLocation ? (
-          <Marker id="current-user" lngLat={toNativeLngLat(currentLocation)} anchor="center">
-            <View style={styles.currentLocationMarker}>
-              <View style={[styles.currentPulseOuter, { backgroundColor: `${currentUser.color}26` }]} />
-              <View style={[styles.currentPulseInner, { backgroundColor: `${currentUser.color}3D` }]} />
-              <Avatar initials={currentUser.initials} color={currentUser.color} size={58} active />
-            </View>
-          </Marker>
-        ) : null}
-      </Map>
+      </MapView>
       <View pointerEvents="none" style={styles.mapWash} />
-      <Text pointerEvents="none" style={styles.place}>
-        {currentLocation ? "現在地" : "Shibuya"}
-      </Text>
-      {!live ? (
-        <View pointerEvents="none" style={styles.activePill}>
-          <Text style={styles.activeText}>{`${activeFriendCount} 人が今アクティブ 🔥`}</Text>
-        </View>
-      ) : null}
-      <View pointerEvents="none" style={styles.privacyPill}>
-        <Text style={styles.privacyText}>FRIENDS ONLY</Text>
-      </View>
+      <MapChrome {...scene.chrome} />
     </View>
   );
 });
+
+function SelfMarker({ coordinate, marker }: { coordinate: GeoPoint; marker: MapSelfMarker }) {
+  return (
+    <Marker identifier="current-user" coordinate={coordinate} anchor={{ x: 0.5, y: 0.5 }}>
+      <View style={styles.currentLocationMarker}>
+        <View style={[styles.currentPulseOuter, { backgroundColor: `${marker.color}26` }]} />
+        <View style={[styles.currentPulseInner, { backgroundColor: `${marker.color}3D` }]} />
+        <Avatar initials={marker.initials} color={marker.color} size={58} active />
+      </View>
+    </Marker>
+  );
+}
+
+function toLatLngTuple(point?: GeoPoint): LatLngTuple {
+  return point ? [point.latitude, point.longitude] : SHIBUYA_CENTER;
+}
+
+function mapTerritoryToNativePolygons(territory: MapTerritoryFeature): TerritoryPolygon[] {
+  return territoryGeometryToNativePolygons(territory.geometry).map((polygon, index) => ({
+    id: `${territory.id}-${index}`,
+    color: territory.color,
+    ...polygon
+  }));
+}
+
+function territoryGeometryToNativePolygons(geometry: TerritoryGeometry): Array<{ coordinates: MapCoordinate[]; holes?: MapCoordinate[][] }> {
+  if (geometry.type === "Polygon") {
+    return [polygonCoordinatesToNativePolygon(geometry.coordinates)];
+  }
+
+  return geometry.coordinates.map(polygonCoordinatesToNativePolygon);
+}
+
+function polygonCoordinatesToNativePolygon(coordinates: number[][][]): { coordinates: MapCoordinate[]; holes?: MapCoordinate[][] } {
+  const [outerRing, ...holes] = coordinates;
+
+  return {
+    coordinates: lngLatRingToCoordinates(outerRing ?? []),
+    holes: holes.length > 0 ? holes.map(lngLatRingToCoordinates) : undefined
+  };
+}
+
+function mapRouteToCoordinates(route: MapRouteFeature | undefined, center: LatLngTuple): MapCoordinate[] {
+  if (!route) return [];
+  const routePoints = route.coordinates.length > 0 ? route.coordinates : buildTrackingRoute(center).map(([latitude, longitude]) => ({ latitude, longitude }));
+  return routePoints.map((point) => ({ latitude: point.latitude, longitude: point.longitude }));
+}
+
+function lngLatRingToCoordinates(ring: number[][]): MapCoordinate[] {
+  return ring.map(([longitude, latitude]) => ({ latitude, longitude }));
+}
 
 const styles = StyleSheet.create({
   shell: {
@@ -167,68 +197,22 @@ const styles = StyleSheet.create({
   },
   mapWash: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255, 238, 184, 0.06)"
-  },
-  place: {
-    position: "absolute",
-    left: 24,
-    top: 86,
-    fontSize: 42,
-    lineHeight: 48,
-    fontWeight: font.heavy,
-    letterSpacing: 0,
-    color: colors.ink
-  },
-  activePill: {
-    position: "absolute",
-    top: 156,
-    alignSelf: "center",
-    minWidth: 168,
-    height: 34,
-    paddingHorizontal: 14,
-    borderRadius: 17,
-    backgroundColor: "#FFD5DF",
-    alignItems: "center",
-    justifyContent: "center",
-    ...shadow
-  },
-  activeText: {
-    fontSize: 14,
-    fontWeight: font.heavy,
-    color: colors.ink
-  },
-  privacyPill: {
-    position: "absolute",
-    right: 18,
-    top: 150,
-    height: 32,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.9)",
-    alignItems: "center",
-    justifyContent: "center",
-    ...shadow
-  },
-  privacyText: {
-    fontSize: 12,
-    fontWeight: font.heavy,
-    letterSpacing: 0,
-    color: colors.ink
+    backgroundColor: "rgba(255, 238, 184, 0.08)"
   },
   friendMarker: {
-    width: 82,
-    height: 94,
+    width: 86,
+    height: 86,
     alignItems: "center",
     justifyContent: "center"
   },
   friendHalo: {
     position: "absolute",
-    top: 0,
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    borderWidth: 10,
-    opacity: 0.22
+    width: 82,
+    height: 82,
+    borderRadius: 41,
+    borderWidth: 3,
+    opacity: 0.22,
+    backgroundColor: "rgba(255,255,255,0.5)"
   },
   currentLocationMarker: {
     width: 86,

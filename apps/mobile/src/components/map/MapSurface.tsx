@@ -1,20 +1,11 @@
 import { memo } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import type { FriendTerritory, GeoPoint, TerritoryColor } from "@terri/shared";
+import { MapChrome } from "./chrome/MapChrome";
 import { Avatar } from "@/components/ui/Avatar";
 import { colors, font } from "@/theme/tokens";
 import { latLngToScreenPoint, projectTerritoryGeometryBounds, type LatLngTuple } from "./mapGeometry";
-import type { MapFriendMarker, MapSelfMarker } from "./mapTypes";
-
-type TerritoryLayer = {
-  id: string;
-  color: TerritoryColor;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  rotate?: string;
-};
+import { buildMapSceneFromLegacyProps } from "./scene/mapSceneDefaults";
+import type { MapSurfaceProps } from "./mapTypes";
 
 type MapBlock = {
   id: string;
@@ -33,12 +24,6 @@ type MapLabel = {
   y: number;
 };
 
-const territoryLayers: TerritoryLayer[] = [
-  { id: "mine-main", color: colors.coral, x: 6, y: 40, width: 70, height: 34, rotate: "-10deg" },
-  { id: "mine-top", color: colors.coral, x: 43, y: 28, width: 44, height: 30, rotate: "20deg" },
-  { id: "mine-pocket", color: colors.yellow, x: 15, y: 20, width: 28, height: 18, rotate: "14deg" }
-];
-
 const mapBlocks: MapBlock[] = [
   { id: "miyashita", color: "#BFEBD7", x: 2, y: 20, width: 38, height: 24, rotate: "-7deg" },
   { id: "udagawa", color: "#FFE3A3", x: 53, y: 10, width: 34, height: 28, rotate: "15deg" },
@@ -53,54 +38,15 @@ const mapLabels: MapLabel[] = [
   { id: "udagawa", label: "宇田川", x: 63, y: 21 }
 ];
 
-const defaultSelfMarker: MapSelfMarker = {
-  initials: "U",
-  color: colors.coral
-};
-
-export const MapSurface = memo(function MapSurface({
-  center,
-  currentLocation,
-  currentUser = defaultSelfMarker,
-  friends = [],
-  friendTerritories = [],
-  activeFriendCount = 0,
-  live = false,
-  showRoute = false
-}: {
-  center?: GeoPoint;
-  currentLocation?: GeoPoint;
-  currentUser?: MapSelfMarker;
-  friends?: MapFriendMarker[];
-  friendTerritories?: FriendTerritory[];
-  activeFriendCount?: number;
-  live?: boolean;
-  showRoute?: boolean;
-}) {
-  const mapCenter = toLatLngTuple(center ?? currentLocation);
+export const MapSurface = memo(function MapSurface(props: MapSurfaceProps) {
+  const scene = props.scene ?? buildMapSceneFromLegacyProps(props);
+  const mapCenter = toLatLngTuple(scene.viewport.center ?? scene.viewport.currentLocation);
 
   return (
     <View style={styles.map} testID="map-surface">
       <MapCanvas />
-      {territoryLayers.map((layer) => (
-        <View
-          key={layer.id}
-          style={[
-            styles.territory,
-            {
-              left: `${layer.x}%`,
-              top: `${layer.y}%`,
-              width: `${layer.width}%`,
-              height: `${layer.height}%`,
-              backgroundColor: `${layer.color}55`,
-              borderColor: layer.color,
-              transform: [{ rotate: layer.rotate ?? "0deg" }]
-            }
-          ]}
-        />
-      ))}
-      {friendTerritories.map((territory) => {
-        const bounds = projectTerritoryGeometryBounds(territory.polygon, mapCenter);
+      {scene.layers.friendFinalTerritories.map((territory) => {
+        const bounds = projectTerritoryGeometryBounds(territory.geometry, mapCenter);
 
         return (
           <View
@@ -120,24 +66,53 @@ export const MapSurface = memo(function MapSurface({
           />
         );
       })}
-      {showRoute ? <View style={styles.route} /> : null}
-      <Text style={styles.place}>{currentLocation ? "現在地" : "Shibuya"}</Text>
-      <View style={styles.privacyPill}>
-        <Text style={styles.privacyText}>FRIENDS ONLY</Text>
-      </View>
-      {!live ? (
-        <View style={styles.activePill}>
-          <Text style={styles.activeText}>{`${activeFriendCount} 人が今アクティブ 🔥`}</Text>
-        </View>
+      {scene.layers.ownFinalTerritories.map((territory) => {
+        const bounds = projectTerritoryGeometryBounds(territory.geometry, mapCenter);
+
+        return (
+          <View
+            key={territory.id}
+            style={[
+              styles.ownFinalTerritory,
+              {
+                left: `${bounds.left}%`,
+                top: `${bounds.top}%`,
+                width: `${bounds.width}%`,
+                height: `${bounds.height}%`,
+                backgroundColor: `${territory.color}44`,
+                borderColor: territory.color
+              }
+            ]}
+            testID={`own-final-territory-${territory.id}`}
+          />
+        );
+      })}
+      {scene.layers.livePreview ? (
+        <View
+          style={[
+            styles.livePreviewTerritory,
+            {
+              left: `${projectTerritoryGeometryBounds(scene.layers.livePreview.geometry, mapCenter).left}%`,
+              top: `${projectTerritoryGeometryBounds(scene.layers.livePreview.geometry, mapCenter).top}%`,
+              width: `${projectTerritoryGeometryBounds(scene.layers.livePreview.geometry, mapCenter).width}%`,
+              height: `${projectTerritoryGeometryBounds(scene.layers.livePreview.geometry, mapCenter).height}%`,
+              backgroundColor: `${scene.layers.livePreview.color}33`,
+              borderColor: scene.layers.livePreview.color
+            }
+          ]}
+          testID="live-preview-territory"
+        />
       ) : null}
-      {currentLocation ? (
-        <View style={[styles.currentLocationMarker, positionForPoint(currentLocation, mapCenter)]}>
+      {scene.layers.trackingRoute ? <View style={styles.route} /> : null}
+      <MapChrome {...scene.chrome} />
+      {scene.viewport.currentLocation && scene.user.marker ? (
+        <View style={[styles.currentLocationMarker, positionForPoint(scene.viewport.currentLocation, mapCenter)]}>
           <View style={styles.currentPulseOuter} />
           <View style={styles.currentPulseInner} />
-          <Avatar initials={currentUser.initials} color={currentUser.color} size={58} active />
+          <Avatar initials={scene.user.marker.initials} color={scene.user.marker.color} size={58} active />
         </View>
       ) : null}
-      {friends.map((friend) => {
+      {scene.layers.friends.map((friend) => {
         const point = latLngToScreenPoint({ latitude: friend.latitude, longitude: friend.longitude }, mapCenter);
 
         return (
@@ -151,11 +126,11 @@ export const MapSurface = memo(function MapSurface({
   );
 });
 
-function toLatLngTuple(point?: GeoPoint): LatLngTuple | undefined {
+function toLatLngTuple(point?: { latitude: number; longitude: number }): LatLngTuple | undefined {
   return point ? [point.latitude, point.longitude] : undefined;
 }
 
-function positionForPoint(point: GeoPoint, center?: LatLngTuple) {
+function positionForPoint(point: { latitude: number; longitude: number }, center?: LatLngTuple) {
   const screenPoint = latLngToScreenPoint(point, center);
   return { left: `${screenPoint.x}%` as const, top: `${screenPoint.y}%` as const };
 }
@@ -249,17 +224,24 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
     opacity: 0.72
   },
-  territory: {
-    position: "absolute",
-    borderWidth: 5,
-    borderRadius: 18,
-    opacity: 0.88
-  },
   friendTerritory: {
     position: "absolute",
     borderWidth: 3,
     borderRadius: 10,
     opacity: 0.82
+  },
+  ownFinalTerritory: {
+    position: "absolute",
+    borderWidth: 4,
+    borderRadius: 12,
+    opacity: 0.9
+  },
+  livePreviewTerritory: {
+    position: "absolute",
+    borderWidth: 3,
+    borderStyle: "dashed",
+    borderRadius: 12,
+    opacity: 0.88
   },
   route: {
     position: "absolute",
@@ -271,49 +253,6 @@ const styles = StyleSheet.create({
     borderWidth: 10,
     borderColor: `${colors.coral}AA`,
     transform: [{ rotate: "-20deg" }]
-  },
-  place: {
-    position: "absolute",
-    left: 24,
-    top: 86,
-    fontSize: 42,
-    lineHeight: 48,
-    fontWeight: font.heavy,
-    color: colors.ink,
-    letterSpacing: 0
-  },
-  privacyPill: {
-    position: "absolute",
-    right: 18,
-    bottom: 22,
-    height: 32,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.92)",
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  privacyText: {
-    fontSize: 12,
-    fontWeight: font.heavy,
-    color: colors.ink,
-    letterSpacing: 0
-  },
-  activePill: {
-    position: "absolute",
-    top: 156,
-    alignSelf: "center",
-    paddingHorizontal: 14,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "#FFD5DF",
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  activeText: {
-    fontSize: 14,
-    fontWeight: font.heavy,
-    color: colors.ink
   },
   marker: {
     position: "absolute",

@@ -1,23 +1,10 @@
-import type { FriendTerritory, GeoPoint, TerritoryColor } from "@terri/shared";
+import type { FriendTerritory, GeoPoint } from "@terri/shared";
+import type { MapFriendMarker, MapScene, MapSelfMarker } from "./scene/mapSceneTypes";
 
-export type MapFriendMarker = {
-  id: string;
-  displayName: string;
-  initials: string;
-  color: TerritoryColor;
-  totalAreaKm2: number;
-  isActive: boolean;
-  updatedLabel: string;
-  latitude: number;
-  longitude: number;
-};
-
-export type MapSelfMarker = {
-  initials: string;
-  color: TerritoryColor;
-};
+export type { MapFriendMarker, MapRouteFeature, MapScene, MapSelfMarker, MapTerritoryFeature } from "./scene/mapSceneTypes";
 
 export type MapSurfaceProps = {
+  scene?: MapScene;
   center?: GeoPoint;
   currentLocation?: GeoPoint;
   currentUser?: MapSelfMarker;

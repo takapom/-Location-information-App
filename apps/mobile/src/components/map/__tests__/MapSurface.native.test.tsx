@@ -1,9 +1,10 @@
 import React from "react";
 import renderer, { act } from "react-test-renderer";
 import { MapSurface } from "@/components/map/MapSurface.native";
-import { MAP_INITIAL_ZOOM, MAP_MAX_ZOOM, MAP_MIN_ZOOM } from "@/components/map/mapCamera";
+import { buildPlaceholderLivePreviewFeature } from "@/components/map/scene/mapSceneDefaults";
+import { colors } from "@/theme/tokens";
 
-const mockEaseTo = jest.fn();
+const mockAnimateToRegion = jest.fn();
 
 jest.mock("react-native", () => {
   const React = require("react");
@@ -23,75 +24,183 @@ jest.mock("react-native", () => {
   };
 });
 
-jest.mock("@maplibre/maplibre-react-native", () => {
+jest.mock("react-native-maps", () => {
   const React = require("react");
+  const MapView = React.forwardRef(({ children, ...props }: { children?: React.ReactNode }, ref: unknown) => {
+    React.useImperativeHandle(ref, () => ({ animateToRegion: mockAnimateToRegion }));
+    return React.createElement("MapView", props, children);
+  });
   return {
-    Camera: React.forwardRef((props: Record<string, unknown>, ref: React.Ref<unknown>) => {
-      React.useImperativeHandle(ref, () => ({
-        easeTo: mockEaseTo,
-        jumpTo: jest.fn(),
-        flyTo: jest.fn(),
-        fitBounds: jest.fn(),
-        zoomTo: jest.fn(),
-        setStop: jest.fn()
-      }));
-      return React.createElement("Camera", props);
-    }),
-    GeoJSONSource: ({ children, ...props }: { children?: React.ReactNode }) => React.createElement("GeoJSONSource", props, children),
-    Layer: (props: Record<string, unknown>) => React.createElement("Layer", props),
-    Map: ({ children, ...props }: { children?: React.ReactNode }) => React.createElement("Map", props, children),
-    Marker: ({ children, ...props }: { children?: React.ReactNode }) => React.createElement("Marker", props, children)
+    __esModule: true,
+    default: MapView,
+    Marker: ({ children, ...props }: { children?: React.ReactNode }) => React.createElement("Marker", props, children),
+    Polygon: (props: Record<string, unknown>) => React.createElement("Polygon", props),
+    Polyline: (props: Record<string, unknown>) => React.createElement("Polyline", props)
   };
 });
 
 describe("MapSurface.native", () => {
   beforeEach(() => {
-    mockEaseTo.mockClear();
+    mockAnimateToRegion.mockClear();
   });
 
-  test("Cameraは初期ズームだけを渡し、ユーザーのズームアウトを固定値で戻さない", () => {
+  test("Release実機クラッシュ回避のためMapLibreを使わずiOS標準地図を描画する", () => {
     let tree: renderer.ReactTestRenderer | undefined;
     act(() => {
       tree = renderer.create(<MapSurface center={{ latitude: 35.66, longitude: 139.7 }} />);
     });
 
-    const camera = tree?.root.findAll((node) => String(node.type) === "Camera")[0];
+    const mapView = tree?.root.findAll((node) => String(node.type) === "MapView")[0];
 
-    expect(camera?.props.initialViewState).toEqual({
-      center: [139.7, 35.66],
-      zoom: MAP_INITIAL_ZOOM
-    });
-    expect(camera?.props.zoom).toBeUndefined();
-    expect(camera?.props.minZoom).toBe(MAP_MIN_ZOOM);
-    expect(camera?.props.maxZoom).toBe(MAP_MAX_ZOOM);
+    expect(tree?.root.findAll((node) => String(node.type) === "Map")).toHaveLength(0);
+    expect(tree?.root.findAll((node) => node.props.testID === "map-surface").length).toBeGreaterThanOrEqual(1);
+    expect(mapView?.props.testID).toBe("native-standard-map");
+    expect(mapView?.props.mapType).toBe("standard");
+    expect(mapView?.props.scrollEnabled).toBe(true);
+    expect(mapView?.props.zoomEnabled).toBe(true);
   });
 
-  test("ユーザーが地図を操作した後は位置更新でカメラを自動追従しない", () => {
+  test("friend territoryとfriend markerを標準地図へ反映する", () => {
     let tree: renderer.ReactTestRenderer | undefined;
     act(() => {
-      tree = renderer.create(<MapSurface center={{ latitude: 35.66, longitude: 139.7 }} />);
+      tree = renderer.create(
+        <MapSurface
+          scene={{
+            viewport: {
+              center: { latitude: 35.66, longitude: 139.7 },
+              currentLocation: { latitude: 35.66, longitude: 139.7 },
+              followMode: "autoUntilUserMoves"
+            },
+            user: { marker: { initials: "ME", color: colors.coral } },
+            layers: {
+              ownFinalTerritories: [],
+              friendFinalTerritories: [
+                {
+                  id: "territory-sakura-final",
+                  userId: "sakura",
+                  displayName: "Sakura",
+                  color: colors.mint,
+                  areaKm2: 0.42,
+                  geometry: {
+                    type: "Polygon",
+                    coordinates: [
+                      [
+                        [139.699, 35.661],
+                        [139.701, 35.661],
+                        [139.701, 35.659],
+                        [139.699, 35.659],
+                        [139.699, 35.661]
+                      ]
+                    ]
+                  }
+                }
+              ],
+              livePreview: undefined,
+              trackingRoute: undefined,
+              friends: [
+                {
+                  id: "sakura",
+                  displayName: "Sakura",
+                  initials: "S",
+                  color: colors.mint,
+                  totalAreaKm2: 1.2,
+                  isActive: true,
+                  updatedLabel: "いま",
+                  latitude: 35.6605,
+                  longitude: 139.7005
+                }
+              ]
+            },
+            chrome: {
+              placeLabel: "現在地",
+              activeFriendCount: 1,
+              privacyLabel: "FRIENDS ONLY",
+              attribution: "© OpenStreetMap contributors"
+            }
+          }}
+        />
+      );
+    });
+
+    const polygons = tree?.root.findAll((node) => String(node.type) === "Polygon") ?? [];
+    const friendMarker = tree?.root.findAll((node) => node.props.testID === "friend-marker-sakura") ?? [];
+
+    expect(polygons).toHaveLength(1);
+    expect(friendMarker.length).toBeGreaterThanOrEqual(1);
+    expect(JSON.stringify(tree?.toJSON())).toContain("S");
+  });
+
+  test("移動前はデモ用の陣地ポリゴンを表示しない", () => {
+    let tree: renderer.ReactTestRenderer | undefined;
+    act(() => {
+      tree = renderer.create(
+        <MapSurface
+          scene={{
+            viewport: {
+              center: { latitude: 35.66, longitude: 139.7 },
+              currentLocation: { latitude: 35.66, longitude: 139.7 },
+              followMode: "autoUntilUserMoves"
+            },
+            user: { marker: { initials: "ME", color: colors.coral } },
+            layers: {
+              ownFinalTerritories: [],
+              friendFinalTerritories: [],
+              livePreview: undefined,
+              trackingRoute: undefined,
+              friends: []
+            },
+            chrome: {
+              placeLabel: "現在地",
+              activeFriendCount: 0,
+              privacyLabel: "FRIENDS ONLY",
+              attribution: "© OpenStreetMap contributors"
+            }
+          }}
+        />
+      );
+    });
+
+    expect(tree?.root.findAll((node) => String(node.type) === "Polygon")).toHaveLength(0);
+  });
+
+  test("MapChromeとMapAttributionが表示される", () => {
+    let tree: renderer.ReactTestRenderer | undefined;
+    act(() => {
+      tree = renderer.create(<MapSurface currentLocation={{ latitude: 35.66, longitude: 139.7 }} activeFriendCount={2} />);
+    });
+    const output = JSON.stringify(tree?.toJSON());
+
+    expect(output).toContain("現在地");
+    expect(output).toContain("2 人が今アクティブ 🔥");
+    expect(output).toContain("FRIENDS ONLY");
+    expect(output).toContain("© OpenStreetMap contributors");
+  });
+
+  test("現在地取得後は渋谷fallbackから現在地へ地図カメラを移動する", () => {
+    let tree: renderer.ReactTestRenderer | undefined;
+    act(() => {
+      tree = renderer.create(<MapSurface />);
     });
 
     act(() => {
-      tree?.update(<MapSurface center={{ latitude: 35.661, longitude: 139.701 }} />);
+      tree?.update(<MapSurface currentLocation={{ latitude: 35.6812, longitude: 139.7671 }} />);
     });
 
-    expect(mockEaseTo).toHaveBeenCalledWith({
-      center: [139.701, 35.661],
-      duration: 450
-    });
+    expect(mockAnimateToRegion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        latitude: 35.6812,
+        longitude: 139.7671
+      }),
+      450
+    );
+  });
 
-    const map = tree?.root.findAll((node) => String(node.type) === "Map")[0];
-    act(() => {
-      map?.props.onRegionWillChange({ nativeEvent: { userInteraction: true } });
-    });
+  test("live preview polygonは将来MapLibreへ戻しても不正geometryにならないよう閉じる", () => {
+    const feature = buildPlaceholderLivePreviewFeature({ latitude: 35.66, longitude: 139.7 }, colors.coral);
+    if (feature.geometry.type !== "Polygon") throw new Error("preview feature must be polygon");
 
-    mockEaseTo.mockClear();
-
-    act(() => {
-      tree?.update(<MapSurface center={{ latitude: 35.662, longitude: 139.702 }} />);
-    });
-
-    expect(mockEaseTo).not.toHaveBeenCalled();
+    const ring = feature.geometry.coordinates[0];
+    expect(ring[0]).toEqual(ring[ring.length - 1]);
+    expect(ring.length).toBeGreaterThanOrEqual(4);
   });
 });

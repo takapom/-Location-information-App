@@ -1,17 +1,20 @@
 import { memo, useEffect, useMemo, useRef } from "react";
-import type { FriendTerritory, GeoPoint, TerritoryGeometry } from "@terri/shared";
+import type { GeoPoint, TerritoryGeometry } from "@terri/shared";
 import { colors } from "@/theme/tokens";
+import { readMapStyleConfig } from "./config/mapStyleConfig";
+import { resolveLeafletDevRasterTileUrl } from "./config/mapStyleFactory";
 import { MAP_INITIAL_ZOOM, MAP_MAX_ZOOM, MAP_MIN_ZOOM, shouldAutoCenterMap, toLatLngKey } from "./mapCamera";
-import { buildTerritoryPolygons, buildTrackingRoute, offsetLatLng, SHIBUYA_CENTER, type LatLngTuple } from "./mapGeometry";
+import { SHIBUYA_CENTER, type LatLngTuple } from "./mapGeometry";
 import { buildFriendLayerKey } from "./mapLayerKeys";
-import type { MapFriendMarker, MapSelfMarker } from "./mapTypes";
+import { buildMapSceneFromLegacyProps, defaultSelfMarker } from "./scene/mapSceneDefaults";
+import type { MapFriendMarker, MapRouteFeature, MapSelfMarker, MapSurfaceProps, MapTerritoryFeature } from "./mapTypes";
 
 type LeafletModule = typeof import("leaflet");
 type LeafletMap = import("leaflet").Map;
 type LeafletLayerGroup = import("leaflet").LayerGroup;
 
 type MapLayerGroups = {
-  base: LeafletLayerGroup;
+  ownTerritories: LeafletLayerGroup;
   friendTerritories: LeafletLayerGroup;
   friends: LeafletLayerGroup;
   live: LeafletLayerGroup;
@@ -19,42 +22,22 @@ type MapLayerGroups = {
 };
 
 const leafletCssId = "terri-leaflet-css";
-const defaultSelfMarker: MapSelfMarker = {
-  initials: "U",
-  color: colors.coral
-};
-
-export const MapSurface = memo(function MapSurface({
-  center,
-  currentLocation,
-  currentUser = defaultSelfMarker,
-  friends = [],
-  friendTerritories = [],
-  activeFriendCount = 0,
-  live = false,
-  showRoute = false
-}: {
-  center?: GeoPoint;
-  currentLocation?: GeoPoint;
-  currentUser?: MapSelfMarker;
-  friends?: MapFriendMarker[];
-  friendTerritories?: FriendTerritory[];
-  activeFriendCount?: number;
-  live?: boolean;
-  showRoute?: boolean;
-}) {
+export const MapSurface = memo(function MapSurface(props: MapSurfaceProps) {
+  const scene = props.scene ?? buildMapSceneFromLegacyProps(props);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const leafletRef = useRef<LeafletModule | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const groupsRef = useRef<MapLayerGroups | null>(null);
-  const friendsKey = useMemo(() => buildFriendLayerKey(friends), [friends]);
-  const friendTerritoriesKey = useMemo(() => buildFriendTerritoryLayerKey(friendTerritories), [friendTerritories]);
-  const mapCenter = useMemo(() => toLatLngTuple(center ?? currentLocation), [center, currentLocation]);
+  const mapStyleConfig = useMemo(() => readMapStyleConfig(), []);
+  const friendsKey = useMemo(() => buildFriendLayerKey(scene.layers.friends), [scene.layers.friends]);
+  const ownTerritoriesKey = useMemo(() => buildTerritoryLayerKey(scene.layers.ownFinalTerritories), [scene.layers.ownFinalTerritories]);
+  const friendTerritoriesKey = useMemo(() => buildTerritoryLayerKey(scene.layers.friendFinalTerritories), [scene.layers.friendFinalTerritories]);
+  const mapCenter = useMemo(() => toLatLngTuple(scene.viewport.center ?? scene.viewport.currentLocation), [scene.viewport.center, scene.viewport.currentLocation]);
   const mapCenterKey = toLatLngKey(mapCenter);
   const currentCenterKeyRef = useRef(mapCenterKey);
   const userMovedMapRef = useRef(false);
-  const latestRenderInputRef = useRef({ mapCenter, currentLocation, currentUser, friends, friendTerritories, live, showRoute });
-  latestRenderInputRef.current = { mapCenter, currentLocation, currentUser, friends, friendTerritories, live, showRoute };
+  const latestRenderInputRef = useRef({ mapCenter, scene });
+  latestRenderInputRef.current = { mapCenter, scene };
 
   useEffect(() => {
     let cancelled = false;
@@ -86,16 +69,19 @@ export const MapSurface = memo(function MapSurface({
         userMovedMapRef.current = true;
       });
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: MAP_MAX_ZOOM,
-        updateWhenIdle: true,
-        updateWhenZooming: false,
-        keepBuffer: 2,
-        attribution: "&copy; OpenStreetMap contributors"
-      }).addTo(map);
+      const tileUrl = resolveLeafletDevRasterTileUrl(mapStyleConfig);
+      if (tileUrl) {
+        L.tileLayer(tileUrl, {
+          maxZoom: MAP_MAX_ZOOM,
+          updateWhenIdle: true,
+          updateWhenZooming: false,
+          keepBuffer: 2,
+          attribution: latest.scene.chrome.attribution
+        }).addTo(map);
+      }
 
       const groups = {
-        base: L.layerGroup().addTo(map),
+        ownTerritories: L.layerGroup().addTo(map),
         friendTerritories: L.layerGroup().addTo(map),
         friends: L.layerGroup().addTo(map),
         live: L.layerGroup().addTo(map),
@@ -107,11 +93,11 @@ export const MapSurface = memo(function MapSurface({
       groupsRef.current = groups;
       currentCenterKeyRef.current = toLatLngKey(latest.mapCenter);
 
-      renderBaseLayers(L, groups.base, latest.mapCenter);
-      renderFriendTerritoryLayers(L, groups.friendTerritories, latest.friendTerritories);
-      renderFriendLayers(L, groups.friends, latest.friends);
-      renderLiveLayers(L, groups.live, latest.live, latest.showRoute, latest.mapCenter);
-      renderCurrentLocationLayer(L, groups.user, latest.currentLocation, latest.currentUser);
+      renderOwnTerritoryLayers(L, groups.ownTerritories, latest.scene.layers.ownFinalTerritories);
+      renderFriendTerritoryLayers(L, groups.friendTerritories, latest.scene.layers.friendFinalTerritories);
+      renderFriendLayers(L, groups.friends, latest.scene.layers.friends);
+      renderLiveLayers(L, groups.live, latest.scene.layers.livePreview, latest.scene.layers.trackingRoute, latest.mapCenter);
+      renderCurrentLocationLayer(L, groups.user, latest.scene.viewport.currentLocation, latest.scene.user.marker);
       resizeFrameId = requestAnimationFrame(() => {
         if (!cancelled && mapRef.current === map) {
           map.invalidateSize();
@@ -133,7 +119,7 @@ export const MapSurface = memo(function MapSurface({
         groupsRef.current = null;
       }
     };
-  }, []);
+  }, [mapStyleConfig]);
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -153,32 +139,39 @@ export const MapSurface = memo(function MapSurface({
 
   useEffect(() => {
     if (!leafletRef.current || !groupsRef.current) return;
-    renderBaseLayers(leafletRef.current, groupsRef.current.base, mapCenter);
-    renderLiveLayers(leafletRef.current, groupsRef.current.live, live, showRoute, mapCenter);
-  }, [mapCenter, live, showRoute]);
+    renderLiveLayers(leafletRef.current, groupsRef.current.live, scene.layers.livePreview, scene.layers.trackingRoute, mapCenter);
+  }, [mapCenter, scene.layers.livePreview, scene.layers.trackingRoute]);
 
   useEffect(() => {
     if (!leafletRef.current || !groupsRef.current) return;
-    renderFriendLayers(leafletRef.current, groupsRef.current.friends, friends);
-  }, [friends, friendsKey]);
+    renderFriendLayers(leafletRef.current, groupsRef.current.friends, scene.layers.friends);
+  }, [scene.layers.friends, friendsKey]);
 
   useEffect(() => {
     if (!leafletRef.current || !groupsRef.current) return;
-    renderFriendTerritoryLayers(leafletRef.current, groupsRef.current.friendTerritories, friendTerritories);
-  }, [friendTerritories, friendTerritoriesKey]);
+    renderOwnTerritoryLayers(leafletRef.current, groupsRef.current.ownTerritories, scene.layers.ownFinalTerritories);
+  }, [scene.layers.ownFinalTerritories, ownTerritoriesKey]);
 
   useEffect(() => {
     if (!leafletRef.current || !groupsRef.current) return;
-    renderCurrentLocationLayer(leafletRef.current, groupsRef.current.user, currentLocation, currentUser);
-  }, [currentLocation, currentUser]);
+    renderFriendTerritoryLayers(leafletRef.current, groupsRef.current.friendTerritories, scene.layers.friendFinalTerritories);
+  }, [scene.layers.friendFinalTerritories, friendTerritoriesKey]);
+
+  useEffect(() => {
+    if (!leafletRef.current || !groupsRef.current) return;
+    renderCurrentLocationLayer(leafletRef.current, groupsRef.current.user, scene.viewport.currentLocation, scene.user.marker);
+  }, [scene.viewport.currentLocation, scene.user.marker]);
 
   return (
     <div style={styles.shell} data-testid="map-surface">
       <div ref={containerRef} style={styles.map} aria-label="TERRI current location map" />
       <div style={styles.mapWash} />
-      <div style={styles.place}>{currentLocation ? "現在地" : "Shibuya"}</div>
-      {!live ? <div style={styles.activePill}>{`${activeFriendCount} 人が今アクティブ 🔥`}</div> : null}
-      <div style={styles.privacyPill}>FRIENDS ONLY</div>
+      <div style={styles.place}>{scene.chrome.placeLabel}</div>
+      <div style={styles.activePill}>{`${scene.chrome.activeFriendCount} 人が今アクティブ 🔥`}</div>
+      <div style={styles.privacyPill}>{scene.chrome.privacyLabel}</div>
+      <div style={styles.attribution} data-testid="map-attribution">
+        {scene.chrome.attribution}
+      </div>
     </div>
   );
 });
@@ -187,92 +180,29 @@ function toLatLngTuple(point?: GeoPoint): LatLngTuple {
   return point ? [point.latitude, point.longitude] : SHIBUYA_CENTER;
 }
 
-function renderBaseLayers(L: LeafletModule, group: LeafletLayerGroup, center: LatLngTuple) {
+function renderOwnTerritoryLayers(L: LeafletModule, group: LeafletLayerGroup, ownTerritories: MapTerritoryFeature[]) {
   group.clearLayers();
-  const polygons = buildTerritoryPolygons(center);
-  buildZenlyDistricts(center).forEach((district) => {
-    group.addLayer(
-      L.polygon(district.points, {
-        color: district.color,
-        fillColor: district.color,
-        fillOpacity: 0.12,
-        opacity: 0.3,
-        weight: 2,
-        lineJoin: "round"
-      })
-    );
+  ownTerritories.forEach((territory) => {
+    const polygons = territoryGeometryToLeafletPolygons(territory.geometry);
+    polygons.forEach((polygon) => {
+      group.addLayer(
+        L.polygon(polygon as import("leaflet").LatLngExpression[][], {
+          color: territory.color,
+          fillColor: territory.color,
+          fillOpacity: 0.2,
+          opacity: 0.86,
+          weight: 4,
+          lineJoin: "round"
+        }).bindPopup(`<strong>${escapeHtml(territory.displayName ?? "You")}</strong><br>確定済み陣地`)
+      );
+    });
   });
-  group.addLayer(
-    L.polygon(polygons.current, {
-      color: colors.coral,
-      fillColor: colors.coral,
-      fillOpacity: 0.16,
-      opacity: 0.82,
-      weight: 5,
-      lineJoin: "round"
-    })
-  );
-  group.addLayer(
-    L.polygon(polygons.friend, {
-      color: colors.mint,
-      fillColor: colors.mint,
-      fillOpacity: 0.14,
-      opacity: 0.72,
-      weight: 4,
-      lineJoin: "round"
-    })
-  );
 }
 
-function buildZenlyDistricts(center: LatLngTuple) {
-  return [
-    {
-      color: "#FFD95C",
-      points: [
-        offsetLatLng(center, 0.0052, -0.0063),
-        offsetLatLng(center, 0.0044, -0.0028),
-        offsetLatLng(center, 0.0014, -0.0036),
-        offsetLatLng(center, 0.0002, -0.0075),
-        offsetLatLng(center, 0.0029, -0.0092)
-      ]
-    },
-    {
-      color: "#6DCFB0",
-      points: [
-        offsetLatLng(center, 0.0052, 0.0022),
-        offsetLatLng(center, 0.0039, 0.0075),
-        offsetLatLng(center, 0.0007, 0.0083),
-        offsetLatLng(center, -0.0004, 0.0042),
-        offsetLatLng(center, 0.0025, 0.0011)
-      ]
-    },
-    {
-      color: "#B8A0E8",
-      points: [
-        offsetLatLng(center, -0.0013, -0.0055),
-        offsetLatLng(center, -0.0035, -0.0015),
-        offsetLatLng(center, -0.0061, -0.0037),
-        offsetLatLng(center, -0.0054, -0.0088),
-        offsetLatLng(center, -0.0025, -0.0098)
-      ]
-    },
-    {
-      color: "#6BBBEF",
-      points: [
-        offsetLatLng(center, -0.0014, 0.0031),
-        offsetLatLng(center, -0.0036, 0.0086),
-        offsetLatLng(center, -0.0067, 0.0069),
-        offsetLatLng(center, -0.0058, 0.0017),
-        offsetLatLng(center, -0.0032, 0.0001)
-      ]
-    }
-  ];
-}
-
-function renderFriendTerritoryLayers(L: LeafletModule, group: LeafletLayerGroup, friendTerritories: FriendTerritory[]) {
+function renderFriendTerritoryLayers(L: LeafletModule, group: LeafletLayerGroup, friendTerritories: MapTerritoryFeature[]) {
   group.clearLayers();
   friendTerritories.forEach((territory) => {
-    const polygons = territoryGeometryToLeafletPolygons(territory.polygon);
+    const polygons = territoryGeometryToLeafletPolygons(territory.geometry);
     polygons.forEach((polygon) => {
       group.addLayer(
         L.polygon(polygon as import("leaflet").LatLngExpression[][], {
@@ -283,37 +213,42 @@ function renderFriendTerritoryLayers(L: LeafletModule, group: LeafletLayerGroup,
           weight: 3,
           lineJoin: "round"
         }).bindPopup(
-          `<strong>${escapeHtml(territory.displayName)}</strong><br>確定済み陣地<br>${territory.areaKm2.toFixed(2)} km²`
+          `<strong>${escapeHtml(territory.displayName ?? "Friend")}</strong><br>確定済み陣地<br>${(territory.areaKm2 ?? 0).toFixed(2)} km²`
         )
       );
     });
   });
 }
 
-function renderLiveLayers(L: LeafletModule, group: LeafletLayerGroup, live: boolean, showRoute: boolean, center: LatLngTuple) {
+function renderLiveLayers(L: LeafletModule, group: LeafletLayerGroup, livePreview: MapTerritoryFeature | undefined, trackingRoute: MapRouteFeature | undefined, center: LatLngTuple) {
   group.clearLayers();
-  const polygons = buildTerritoryPolygons(center);
-  if (live) {
-    group.addLayer(
-      L.polygon(polygons.preview, {
-        color: colors.coral,
-        fillColor: colors.coral,
-        fillOpacity: 0.08,
-        opacity: 0.72,
-        weight: 3,
-        dashArray: "10 10"
-      })
-    );
+  if (livePreview) {
+    territoryGeometryToLeafletPolygons(livePreview.geometry).forEach((polygon) => {
+      group.addLayer(
+        L.polygon(polygon as import("leaflet").LatLngExpression[][], {
+          color: livePreview.color,
+          fillColor: livePreview.color,
+          fillOpacity: 0.18,
+          opacity: 0.86,
+          weight: 3,
+          dashArray: "10 10",
+          lineJoin: "round"
+        })
+      );
+    });
   }
 
-  if (showRoute) {
+  if (trackingRoute && trackingRoute.coordinates.length > 0) {
     group.addLayer(
-      L.polyline(buildTrackingRoute(center), {
-        color: colors.coral,
-        weight: 6,
-        opacity: 0.68,
-        lineCap: "round"
-      })
+      L.polyline(
+        trackingRoute.coordinates.map((point) => [point.latitude, point.longitude] as LatLngTuple),
+        {
+          color: trackingRoute.color,
+          weight: 6,
+          opacity: 0.68,
+          lineCap: "round"
+        }
+      )
     );
   }
 }
@@ -368,8 +303,8 @@ function renderFriendLayers(L: LeafletModule, group: LeafletLayerGroup, friends:
   });
 }
 
-function buildFriendTerritoryLayerKey(friendTerritories: FriendTerritory[]) {
-  return friendTerritories.map((territory) => `${territory.id}:${territory.calculatedAt}:${territory.areaKm2}`).join("|");
+function buildTerritoryLayerKey(territories: MapTerritoryFeature[]) {
+  return territories.map((territory) => `${territory.id}:${territory.areaKm2 ?? 0}`).join("|");
 }
 
 function territoryGeometryToLeafletPolygons(geometry: TerritoryGeometry): LatLngTuple[][][] {
@@ -530,6 +465,22 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 900,
     color: colors.ink,
     boxShadow: "0 8px 18px rgba(0,0,0,.16)",
+    pointerEvents: "none"
+  },
+  attribution: {
+    position: "absolute",
+    left: 12,
+    bottom: 88,
+    zIndex: 520,
+    maxWidth: "64%",
+    padding: "4px 8px",
+    borderRadius: 8,
+    background: "rgba(255,255,255,.82)",
+    fontSize: 10,
+    lineHeight: "13px",
+    fontWeight: 700,
+    letterSpacing: 0,
+    color: colors.ink,
     pointerEvents: "none"
   }
 };
