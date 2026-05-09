@@ -54,6 +54,7 @@ Supabase反映:
 - `docs/adr/0007-friend-live-presence.md`
 - `docs/adr/0008-ranking-delta-snapshots.md`
 - `docs/adr/0009-native-maplibre-map-surface.md`
+- `docs/adr-proposals/0010-self-hosted-map-style-and-tiles.md`
 
 ## 実装済み内容
 
@@ -227,20 +228,30 @@ supabase db diff --local --schema public,realtime
 主なファイル:
 
 - `apps/mobile/src/components/map/MapSurface.native.tsx`
+- `apps/mobile/src/components/map/config/mapStyleConfig.ts`
+- `apps/mobile/src/components/map/config/mapStyleFactory.ts`
+- `apps/mobile/src/components/map/config/mapStyleGuards.ts`
+- `apps/mobile/src/components/map/chrome/MapChrome.tsx`
+- `apps/mobile/src/components/map/chrome/MapAttribution.tsx`
+- `apps/mobile/src/components/map/scene/mapSceneTypes.ts`
+- `apps/mobile/src/features/map/services/buildHomeMapScene.ts`
 - `apps/mobile/src/components/map/mapNativeLayers.ts`
 - `apps/mobile/src/components/map/__tests__/mapNativeLayers.test.ts`
 - `apps/mobile/app.json`
 - `docs/adr/0009-native-maplibre-map-surface.md`
+- `docs/adr-proposals/0010-self-hosted-map-style-and-tiles.md`
 
 内容:
 
 - `@maplibre/maplibre-react-native` を追加。
 - `expo-system-ui` を追加し、Androidの `userInterfaceStyle` prebuild警告を解消。
 - Nativeの `MapSurface` をMapLibre `Map` / `Camera` / `GeoJSONSource` / `Layer` / `Marker` で実装。
-- S04 screenは既存どおり `MapSurface` propsだけに依存し、MapLibreを直接importしない。
+- S04 screenは `buildHomeMapScene` で `MapScene` を作って `MapSurface` へ渡し、MapLibreを直接importしない。
 - 友達確定済み陣地、live preview、tracking route、友達marker、自分markerを別レイヤーで描画する。
+- map style / tile設定は `config/mapStyle*` へ分離。devはOSM raster fallback、本番はself-hosted vector style URLを前提にする。
+- `MapChrome` / `MapAttribution` がplace label、active friend pill、privacy pill、attributionを担当する。
 - MapLibre native moduleを使うため、実機確認はExpo Goではなくdev build/prebuildが必要。
-- dev buildはアプリ内定義のOSM raster tile style。本番style/tilesの選定は未完了。
+- dev/release構成の実機検証は `EXPO_PUBLIC_MAP_ENV=development`、`EXPO_PUBLIC_MAP_TILE_MODE=dev-osm-raster`、`EXPO_PUBLIC_MAP_DEBUG_ALLOW_OSM_TILES=true` の場合だけOSM raster fallbackを使う。配布・本番運用buildでは `EXPO_PUBLIC_MAP_ENV=production` とself-hosted style URLを必須にする。本番style/tilesの具体的な運用先は未完了。
 
 ## 次に実装するべきこと
 
