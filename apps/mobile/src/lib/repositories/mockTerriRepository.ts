@@ -17,6 +17,8 @@ import type {
   UserProfile
 } from "@terri/shared";
 import { colors } from "@/theme/tokens";
+import { buildLoopTerritoryPreview } from "@/features/tracking/services/loopTerritory";
+import { getDistanceMeters } from "@/features/tracking/services/trackingPolicy";
 import type { EnsureDailyActivityInput, TerriRepository } from "./terriRepository";
 import { RepositoryError } from "./terriRepository";
 
@@ -158,6 +160,11 @@ type StoredLocationPoint = LocationPointInput & {
   acceptedForGeometry: boolean;
 };
 
+const maxAcceptedAccuracyM = 50;
+const maxAcceptedSpeedMps = 15;
+const minDistinctPointDistanceM = 1;
+const minAbnormalJumpDistanceM = 100;
+
 function todayLocalDate() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -230,6 +237,35 @@ function friendPresenceFromRequestProfile(profile: FriendRequestProfile): Friend
   };
 }
 
+function getGeometryAcceptedPoints(points: StoredLocationPoint[]) {
+  const orderedPoints = [...points]
+    .filter((point) => point.acceptedForGeometry)
+    .filter((point) => point.accuracyM < maxAcceptedAccuracyM)
+    .filter((point) => point.speedMps === undefined || point.speedMps <= maxAcceptedSpeedMps)
+    .sort((a, b) => Date.parse(a.recordedAt) - Date.parse(b.recordedAt));
+  const acceptedPoints: StoredLocationPoint[] = [];
+
+  for (const point of orderedPoints) {
+    const previous = acceptedPoints[acceptedPoints.length - 1];
+    if (!previous) {
+      acceptedPoints.push(point);
+      continue;
+    }
+
+    const elapsedSeconds = (Date.parse(point.recordedAt) - Date.parse(previous.recordedAt)) / 1000;
+    const distanceM = getDistanceMeters(previous, point);
+    const maxJumpDistanceM = Math.max(minAbnormalJumpDistanceM, elapsedSeconds * maxAcceptedSpeedMps);
+
+    if (elapsedSeconds <= 0) continue;
+    if (distanceM < minDistinctPointDistanceM) continue;
+    if (distanceM > maxJumpDistanceM) continue;
+
+    acceptedPoints.push(point);
+  }
+
+  return acceptedPoints;
+}
+
 export function createMockTerriRepository(
   seed?: Partial<{
     profile: UserProfile;
@@ -263,6 +299,7 @@ export function createMockTerriRepository(
   }
 
   function createTerritorySummary(dailyActivity: DailyActivity, areaKm2: number, distanceKm: number): TerritorySummary {
+    const preview = buildLoopTerritoryPreview(getGeometryAcceptedPoints(locationPoints.get(dailyActivity.id) ?? []));
     return {
       id: dailyActivity.id,
       title: "今日",
@@ -270,7 +307,8 @@ export function createMockTerriRepository(
       distanceKm,
       duration: "進行中",
       color: profile.territoryColor,
-      createdAtLabel: dailyActivity.localDate === todayLocalDate() ? "今日" : dailyActivity.localDate
+      createdAtLabel: dailyActivity.localDate === todayLocalDate() ? "今日" : dailyActivity.localDate,
+      polygon: preview.geometry
     };
   }
 
@@ -281,9 +319,15 @@ export function createMockTerriRepository(
       throw new RepositoryError("確定済みの日次アクティビティは同期できません", "invalid-state");
     }
 
-    const acceptedPointCount = (locationPoints.get(dailyActivityId) ?? []).filter((point) => point.acceptedForGeometry).length;
-    const distanceKm = acceptedPointCount >= 2 ? Number(((acceptedPointCount - 1) * 0.12).toFixed(1)) : 0;
-    const areaKm2 = acceptedPointCount >= 2 ? Number(Math.max(0.08, acceptedPointCount * 0.015).toFixed(2)) : 0;
+    const acceptedPoints = getGeometryAcceptedPoints(locationPoints.get(dailyActivityId) ?? []);
+    const acceptedPointCount = acceptedPoints.length;
+    const distanceM = acceptedPoints.reduce((distance, point, index) => {
+      const previous = acceptedPoints[index - 1];
+      return previous ? distance + getDistanceMeters(previous, point) : distance;
+    }, 0);
+    const preview = buildLoopTerritoryPreview(acceptedPoints);
+    const distanceKm = Number((distanceM / 1000).toFixed(2));
+    const areaKm2 = Number((preview.areaM2 / 1_000_000).toFixed(4));
     const syncedAt = new Date().toISOString();
     const stats = { elapsed: "進行中", distanceKm, previewAreaKm2: areaKm2, lastSyncedAt: syncedAt };
     const nextDailyActivity = { ...dailyActivity, stats };
@@ -458,7 +502,7 @@ export function createMockTerriRepository(
       }
 
       const points = locationPoints.get(input.dailyActivityId) ?? [];
-      points.push({ ...input, acceptedForGeometry: input.accuracyM < 50 });
+      points.push({ ...input, acceptedForGeometry: input.accuracyM < maxAcceptedAccuracyM });
       locationPoints.set(input.dailyActivityId, points);
     },
     syncLiveTerritory,

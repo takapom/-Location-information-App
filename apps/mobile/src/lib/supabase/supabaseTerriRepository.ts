@@ -137,17 +137,18 @@ type FunctionResult = {
   distanceM?: number;
   areaM2?: number;
   state?: "live" | "final";
+  polygonGeojson?: TerritoryGeometry | null;
 };
 
 const defaultName = "TERRI User";
 
 function normalizeError(error: unknown, fallback: string): RepositoryError {
   if (error instanceof RepositoryError) return error;
-  const message = error instanceof Error ? error.message : fallback;
+  const message = error instanceof Error ? error.message : error && typeof error === "object" && "message" in error ? String((error as { message?: unknown }).message ?? fallback) : fallback;
   const lower = message.toLowerCase();
   if (lower.includes("auth") || lower.includes("permission") || lower.includes("jwt")) return new RepositoryError(message, "permission-denied");
-  if (lower.includes("not found") || lower.includes("not-found") || lower.includes("p0002")) return new RepositoryError(message, "not-found");
   if (lower.includes("finalized") || lower.includes("not syncable") || lower.includes("yourself")) return new RepositoryError(message, "invalid-state");
+  if (lower.includes("not found") || lower.includes("not-found") || lower.includes("p0002")) return new RepositoryError(message, "not-found");
   return new RepositoryError(message, "network");
 }
 
@@ -190,7 +191,7 @@ export function mapDailyActivityRow(row: DailyActivityRow): DailyActivity {
   };
 }
 
-export function mapActivitySummary(row: DailyActivityRow, color: TerritoryColor): TerritorySummary {
+export function mapActivitySummary(row: DailyActivityRow, color: TerritoryColor, polygon?: TerritoryGeometry): TerritorySummary {
   return {
     id: row.id,
     title: formatActivityLabel(row.local_date),
@@ -198,7 +199,8 @@ export function mapActivitySummary(row: DailyActivityRow, color: TerritoryColor)
     distanceKm: Number((row.distance_m / 1000).toFixed(2)),
     duration: formatDuration(row.started_at, row.ended_at),
     color,
-    createdAtLabel: formatActivityLabel(row.local_date)
+    createdAtLabel: formatActivityLabel(row.local_date),
+    polygon
   };
 }
 
@@ -402,6 +404,14 @@ export function createSupabaseTerriRepository(): TerriRepository {
     return (await ensureProfile()).territoryColor;
   }
 
+  async function ensureTerritoryCaptureEnabled() {
+    const profile = await ensureProfile();
+    if (!profile.territoryCaptureEnabled) {
+      throw new RepositoryError("テリトリー生成がOFFです", "permission-denied");
+    }
+    return profile;
+  }
+
   async function getDailyActivityRow(dailyActivityId: string) {
     const { data, error } = await supabase.from("daily_activities").select("*").eq("id", dailyActivityId).maybeSingle();
     if (error) throw error;
@@ -409,11 +419,11 @@ export function createSupabaseTerriRepository(): TerriRepository {
     return data as DailyActivityRow;
   }
 
-  async function buildLiveResult(dailyActivityId: string): Promise<LiveTerritoryResult> {
+  async function buildLiveResult(dailyActivityId: string, polygon?: TerritoryGeometry): Promise<LiveTerritoryResult> {
     const row = await getDailyActivityRow(dailyActivityId);
     const color = await getProfileColor();
     const dailyActivity = mapDailyActivityRow(row);
-    const territory = mapActivitySummary(row, color);
+    const territory = mapActivitySummary(row, color, polygon);
     return { dailyActivity, territory, stats: dailyActivity.stats };
   }
 
@@ -558,7 +568,7 @@ export function createSupabaseTerriRepository(): TerriRepository {
     },
     async ensureDailyActivity(input: EnsureDailyActivityInput) {
       try {
-        await ensureProfile();
+        await ensureTerritoryCaptureEnabled();
         const findExisting = async () => {
           const { data: existing, error: selectError } = await supabase
             .from("daily_activities")
@@ -589,6 +599,7 @@ export function createSupabaseTerriRepository(): TerriRepository {
     },
     async appendLocationPoint(input: LocationPointInput) {
       try {
+        await ensureTerritoryCaptureEnabled();
         const { error } = await supabase.from("location_points").insert({
           daily_activity_id: input.dailyActivityId,
           position: `POINT(${input.longitude} ${input.latitude})`,
@@ -607,7 +618,7 @@ export function createSupabaseTerriRepository(): TerriRepository {
         const { data, error } = await supabase.rpc("sync_live_territory", { p_daily_activity_id: dailyActivityId });
         if (error) throw error;
         const result = unwrapFunctionResult(data);
-        return await buildLiveResult(result.dailyActivityId ?? dailyActivityId);
+        return await buildLiveResult(result.dailyActivityId ?? dailyActivityId, result.polygonGeojson ?? undefined);
       } catch (error) {
         throw normalizeError(error, "テリトリーを同期できませんでした");
       }
@@ -617,7 +628,7 @@ export function createSupabaseTerriRepository(): TerriRepository {
         const { data, error } = await supabase.rpc("finalize_daily_activity", { p_daily_activity_id: dailyActivityId });
         if (error) throw error;
         const result = unwrapFunctionResult(data);
-        const liveResult = await buildLiveResult(result.dailyActivityId ?? dailyActivityId);
+        const liveResult = await buildLiveResult(result.dailyActivityId ?? dailyActivityId, result.polygonGeojson ?? undefined);
         return { dailyActivity: liveResult.dailyActivity, territory: liveResult.territory };
       } catch (error) {
         throw normalizeError(error, "日次アクティビティを確定できませんでした");

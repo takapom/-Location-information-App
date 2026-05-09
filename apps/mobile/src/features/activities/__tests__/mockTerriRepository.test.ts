@@ -1,6 +1,25 @@
 import { colors } from "@/theme/tokens";
 import { createMockTerriRepository } from "@/lib/repositories/mockTerriRepository";
 import { RepositoryError } from "@/lib/repositories/terriRepository";
+import { getDistanceMeters } from "@/features/tracking/services/trackingPolicy";
+
+type TestLocationPoint = {
+  latitude: number;
+  longitude: number;
+  accuracyM?: number;
+  speedMps?: number;
+  recordedAt: string;
+};
+
+async function appendLocationPoints(repository: ReturnType<typeof createMockTerriRepository>, dailyActivityId: string, points: TestLocationPoint[]) {
+  for (const point of points) {
+    await repository.appendLocationPoint({
+      dailyActivityId,
+      accuracyM: 12,
+      ...point
+    });
+  }
+}
 
 describe("mockTerriRepository", () => {
   test("Supabase差し替え前提の日次Activity契約でensureとsyncを返す", async () => {
@@ -38,7 +57,7 @@ describe("mockTerriRepository", () => {
     );
   });
 
-  test("GPS点を2点以上追加してlive territoryを同期できる", async () => {
+  test("直線GPS点は距離だけ増やし、live territory面積は増やさない", async () => {
     const repository = createMockTerriRepository();
     const dailyActivity = await repository.ensureDailyActivity({ localDate: "2026-04-26", timezone: "Asia/Tokyo" });
 
@@ -52,8 +71,8 @@ describe("mockTerriRepository", () => {
     });
     await repository.appendLocationPoint({
       dailyActivityId: dailyActivity.id,
-      latitude: 35.661,
-      longitude: 139.701,
+      latitude: 35.6603,
+      longitude: 139.7003,
       accuracyM: 10,
       speedMps: 1.4,
       recordedAt: "2026-04-26T03:00:05.000Z"
@@ -63,8 +82,35 @@ describe("mockTerriRepository", () => {
 
     expect(synced.dailyActivity.id).toBe(dailyActivity.id);
     expect(synced.territory.id).toBe(dailyActivity.id);
-    expect(synced.territory.areaKm2).toBeGreaterThan(0);
+    expect(synced.territory.areaKm2).toBe(0);
     expect(synced.territory.distanceKm).toBeGreaterThan(0);
+  });
+
+  test("閉じたループGPS点はlive territory面積として同期できる", async () => {
+    const repository = createMockTerriRepository();
+    const dailyActivity = await repository.ensureDailyActivity({ localDate: "2026-04-26", timezone: "Asia/Tokyo" });
+    const loop = [
+      { latitude: 35.66, longitude: 139.7 },
+      { latitude: 35.6609, longitude: 139.7 },
+      { latitude: 35.6609, longitude: 139.7011 },
+      { latitude: 35.66, longitude: 139.7011 },
+      { latitude: 35.66003, longitude: 139.70002 }
+    ];
+
+    for (const [index, location] of loop.entries()) {
+      await repository.appendLocationPoint({
+        dailyActivityId: dailyActivity.id,
+        ...location,
+        accuracyM: 12,
+        speedMps: 1.2,
+        recordedAt: new Date(Date.parse("2026-04-26T03:00:00.000Z") + index * 10000).toISOString()
+      });
+    }
+
+    const synced = await repository.syncLiveTerritory(dailyActivity.id);
+
+    expect(synced.territory.areaKm2).toBeGreaterThan(0);
+    expect(synced.stats.previewAreaKm2).toBe(synced.territory.areaKm2);
   });
 
   test("低精度GPS点だけではlive territoryの距離と面積を増やさない", async () => {
@@ -86,6 +132,95 @@ describe("mockTerriRepository", () => {
     });
   });
 
+  test("高速GPS点は保存できてもgeometry計算の距離と面積から除外する", async () => {
+    const repository = createMockTerriRepository();
+    const dailyActivity = await repository.ensureDailyActivity({ localDate: "2026-04-26", timezone: "Asia/Tokyo" });
+
+    await appendLocationPoints(repository, dailyActivity.id, [
+      {
+        latitude: 35.66,
+        longitude: 139.7,
+        speedMps: 1.2,
+        recordedAt: "2026-04-26T03:00:00.000Z"
+      },
+      {
+        latitude: 35.661,
+        longitude: 139.701,
+        speedMps: 15.1,
+        recordedAt: "2026-04-26T03:00:05.000Z"
+      }
+    ]);
+
+    await expect(repository.syncLiveTerritory(dailyActivity.id)).resolves.toMatchObject({
+      stats: { distanceKm: 0, previewAreaKm2: 0 },
+      territory: { areaKm2: 0, distanceKm: 0 }
+    });
+  });
+
+  test("異常ジャンプ点は後続距離に混ぜずgeometry計算から除外する", async () => {
+    const repository = createMockTerriRepository();
+    const dailyActivity = await repository.ensureDailyActivity({ localDate: "2026-04-26", timezone: "Asia/Tokyo" });
+
+    await appendLocationPoints(repository, dailyActivity.id, [
+      {
+        latitude: 35.66,
+        longitude: 139.7,
+        speedMps: 1.2,
+        recordedAt: "2026-04-26T03:00:00.000Z"
+      },
+      {
+        latitude: 35.675,
+        longitude: 139.72,
+        speedMps: 1.2,
+        recordedAt: "2026-04-26T03:00:05.000Z"
+      },
+      {
+        latitude: 35.67501,
+        longitude: 139.72001,
+        speedMps: 1.2,
+        recordedAt: "2026-04-26T03:00:10.000Z"
+      }
+    ]);
+
+    await expect(repository.syncLiveTerritory(dailyActivity.id)).resolves.toMatchObject({
+      stats: { distanceKm: 0, previewAreaKm2: 0 },
+      territory: { areaKm2: 0, distanceKm: 0 }
+    });
+  });
+
+  test("recordedAtの逆順で追加されたGPS点も時系列に並べて距離計算する", async () => {
+    const repository = createMockTerriRepository();
+    const dailyActivity = await repository.ensureDailyActivity({ localDate: "2026-04-26", timezone: "Asia/Tokyo" });
+    const first = { latitude: 35.66, longitude: 139.7 };
+    const second = { latitude: 35.6603, longitude: 139.7001 };
+    const third = { latitude: 35.6604, longitude: 139.7005 };
+    const expectedDistanceKm = Number(((getDistanceMeters(first, second) + getDistanceMeters(second, third)) / 1000).toFixed(2));
+
+    await appendLocationPoints(repository, dailyActivity.id, [
+      {
+        ...third,
+        speedMps: 1.2,
+        recordedAt: "2026-04-26T03:00:10.000Z"
+      },
+      {
+        ...second,
+        speedMps: 1.2,
+        recordedAt: "2026-04-26T03:00:05.000Z"
+      },
+      {
+        ...first,
+        speedMps: 1.2,
+        recordedAt: "2026-04-26T03:00:00.000Z"
+      }
+    ]);
+
+    const synced = await repository.syncLiveTerritory(dailyActivity.id);
+
+    expect(synced.stats.distanceKm).toBe(expectedDistanceKm);
+    expect(synced.territory.distanceKm).toBe(expectedDistanceKm);
+    expect(synced.territory.areaKm2).toBe(0);
+  });
+
   test("日次確定は再試行でき、確定後のGPS追加は拒否する", async () => {
     const repository = createMockTerriRepository();
     const dailyActivity = await repository.ensureDailyActivity({ localDate: "2026-04-26", timezone: "Asia/Tokyo" });
@@ -100,8 +235,8 @@ describe("mockTerriRepository", () => {
     });
     await repository.appendLocationPoint({
       dailyActivityId: dailyActivity.id,
-      latitude: 35.661,
-      longitude: 139.701,
+      latitude: 35.6603,
+      longitude: 139.7003,
       accuracyM: 10,
       speedMps: 1.4,
       recordedAt: "2026-04-26T03:00:05.000Z"

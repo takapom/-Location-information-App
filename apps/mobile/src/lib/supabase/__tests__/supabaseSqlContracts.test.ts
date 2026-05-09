@@ -7,30 +7,82 @@ function readMigration(name: string) {
 
 describe("Supabase SQL contracts", () => {
   test("finalize_daily_activity is idempotent for already finalized daily activities", () => {
-    const sql = readMigration("0005_live_territory_functions.sql");
+    const sql = readMigration("0012_closed_loop_territory_functions.sql");
 
     expect(sql).toContain("if v_daily.status = 'finalized' then");
     expect(sql).toContain("'state', 'final'");
+    expect(sql).toContain("'territoryId', v_final.id");
     expect(sql).toContain("'finalTerritoryId', v_final.id");
+    expect(sql).toContain("coalesce(v_final.algorithm_version, 'final-closed-loop-v1')");
+    expect(sql).toContain("return v_sync_result || jsonb_build_object");
+    expect(sql).toContain("'territoryId', v_final_id");
+    expect(sql).toContain("'finalTerritoryId', v_final_id");
   });
 
   test("live territory sync excludes low-quality and abnormal GPS points", () => {
-    const sql = readMigration("0005_live_territory_functions.sql");
+    const sql = readMigration("0012_closed_loop_territory_functions.sql");
 
     expect(sql).toContain("coalesce(accuracy_m, 0) < 50");
     expect(sql).toContain("(speed_mps is null or speed_mps <= 15)");
-    expect(sql).toContain("ST_Distance(position, previous_position) >= 1");
-    expect(sql).toContain("ST_Distance(position, previous_position) <= greatest");
-    expect(sql).toContain("'live-buffer-v1-basic'");
+    expect(sql).toContain("with recursive raw_points as");
+    expect(sql).toContain("row_number() over (order by recorded_at, id)");
+    expect(sql).toContain("last_accepted_position");
+    expect(sql).toContain("join raw_points next_point");
+    expect(sql).toContain("ST_Distance(next_point.position, scanned_points.last_accepted_position) >= 1");
+    expect(sql).toContain("ST_Distance(next_point.position, scanned_points.last_accepted_position) <= greatest");
+    expect(sql).toContain("'live-closed-loop-v1'");
+  });
+
+  test("closed loop territory RPCs require authenticated owners and authenticated execute grants", () => {
+    const sql = readMigration("0012_closed_loop_territory_functions.sql");
+
+    expect(sql).toContain("v_user_id uuid := auth.uid()");
+    expect(sql).toContain("if v_user_id is null then");
+    expect(sql).toContain("raise exception 'not authenticated'");
+    expect(sql).toContain("where id = p_daily_activity_id");
+    expect(sql).toContain("and user_id = v_user_id");
+    expect(sql).toContain("and state = 'live'");
+    expect(sql).toContain("and state = 'final'");
+    expect(sql).toContain("revoke all on function public.sync_live_territory(uuid) from public");
+    expect(sql).toContain("grant execute on function public.sync_live_territory(uuid) to authenticated");
+    expect(sql).toContain("revoke all on function public.finalize_daily_activity(uuid) from public");
+    expect(sql).toContain("grant execute on function public.finalize_daily_activity(uuid) to authenticated");
+  });
+
+  test("live territory sync counts only closed loops as territory area", () => {
+    const sql = readMigration("0012_closed_loop_territory_functions.sql");
+
+    expect(sql).toContain("b.rn - a.rn >= 3");
+    expect(sql).toContain("ST_Distance(a.position, b.position) <= 500");
+    expect(sql).toContain("lead(close_distance_m) over (partition by start_rn order by end_rn)");
+    expect(sql).toContain("next_close_distance_m >= close_distance_m + 25");
+    expect(sql).toContain("ST_MakePolygon(ST_AddPoint(line, ST_StartPoint(line)))");
+    expect(sql).toContain("loop_distance_m >= 100");
+    expect(sql).toContain("current_loop.loop_area_m2 >= 100");
+    expect(sql).toContain("current_loop.start_rn < previous_loop.end_rn");
+    expect(sql).not.toContain("current_loop.start_rn <= previous_loop.end_rn");
+    expect(sql).toContain("delete from public.territories");
+    expect(sql).toContain("'final-closed-loop-v1'");
+    expect(sql).toContain("'polygonGeojson'");
+    expect(sql).toContain("ST_AsGeoJSON(coalesce");
+    expect(sql).toContain('drop policy if exists "territories_delete_own"');
+    expect(sql).toContain('create policy "territories_delete_own"');
+    expect(sql).toContain("on public.territories for delete");
   });
 
   test("RLS rejects location appends outside owned open or paused daily activities", () => {
-    const sql = readMigration("0004_rls_core.sql");
+    const coreSql = readMigration("0004_rls_core.sql");
+    const closedLoopSql = readMigration("0012_closed_loop_territory_functions.sql");
 
-    expect(sql).toContain("location_points_insert_own_daily_activity");
-    expect(sql).toContain("user_id = auth.uid()");
-    expect(sql).toContain("da.user_id = auth.uid()");
-    expect(sql).toContain("da.status in ('open', 'paused')");
+    expect(coreSql).toContain("location_points_insert_own_daily_activity");
+    expect(coreSql).toContain("user_id = auth.uid()");
+    expect(coreSql).toContain("da.user_id = auth.uid()");
+    expect(coreSql).toContain("da.status in ('open', 'paused')");
+    expect(closedLoopSql).toContain('drop policy if exists "daily_activities_insert_own"');
+    expect(closedLoopSql).toContain('drop policy if exists "location_points_insert_own_daily_activity"');
+    expect(closedLoopSql).toContain("p.territory_capture_enabled = true");
+    expect(closedLoopSql).toContain("on public.daily_activities for insert");
+    expect(closedLoopSql).toContain("on public.location_points for insert");
   });
 
   test("friend search only exposes public-safe profile fields through authenticated RPCs", () => {
