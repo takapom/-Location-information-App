@@ -13,3 +13,6 @@ verify_jwt = true
 
 [functions.finalize-daily-activity]
 verify_jwt = true
+
+[functions.map-tiles]
+verify_jwt = false
