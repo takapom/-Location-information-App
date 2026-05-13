@@ -54,6 +54,7 @@ Supabase反映:
 - `docs/adr/0007-friend-live-presence.md`
 - `docs/adr/0008-ranking-delta-snapshots.md`
 - `docs/adr/0009-native-maplibre-map-surface.md`
+- `docs/adr/0010-self-hosted-map-style-and-tiles.md`
 - `docs/adr-proposals/0010-self-hosted-map-style-and-tiles.md`
 
 ## 実装済み内容
@@ -239,6 +240,7 @@ supabase db diff --local --schema public,realtime
 - `apps/mobile/src/components/map/__tests__/mapNativeLayers.test.ts`
 - `apps/mobile/app.json`
 - `docs/adr/0009-native-maplibre-map-surface.md`
+- `docs/adr/0010-self-hosted-map-style-and-tiles.md`
 - `docs/adr-proposals/0010-self-hosted-map-style-and-tiles.md`
 
 内容:
@@ -251,7 +253,7 @@ supabase db diff --local --schema public,realtime
 - map style / tile設定は `config/mapStyle*` へ分離。devはOSM raster fallback、本番はself-hosted vector style URLを前提にする。
 - `MapChrome` / `MapAttribution` がplace label、active friend pill、privacy pill、attributionを担当する。
 - MapLibre native moduleを使うため、実機確認はExpo Goではなくdev build/prebuildが必要。
-- dev/release構成の実機検証は `EXPO_PUBLIC_MAP_ENV=development`、`EXPO_PUBLIC_MAP_TILE_MODE=dev-osm-raster`、`EXPO_PUBLIC_MAP_DEBUG_ALLOW_OSM_TILES=true` の場合だけOSM raster fallbackを使う。配布・本番運用buildでは `EXPO_PUBLIC_MAP_ENV=production` とself-hosted style URLを必須にする。本番style/tilesの具体的な運用先は未完了。
+- dev/release構成の実機検証は `EXPO_PUBLIC_MAP_ENV=development`、`EXPO_PUBLIC_MAP_TILE_MODE=dev-osm-raster`、`EXPO_PUBLIC_MAP_DEBUG_ALLOW_OSM_TILES=true` の場合だけOSM raster fallbackを使う。配布・本番運用buildでは `EXPO_PUBLIC_MAP_ENV=production` とself-hosted style URLを必須にする。本番style/tilesはADR 0010でSupabase Storage + Edge Function `map-tiles` + Protomaps PMTilesに決定済み。Storage bucket、Edge Function、実domainまたはfunctions URL、region extract、maxzoom、更新運用は未実装。
 
 ## 次に実装するべきこと
 
@@ -279,7 +281,20 @@ supabase db diff --local --schema public,realtime
 - dev build/prebuild後にiOS/Android実機で位置情報許可、共有OFF、領土化ON、Presence送受信、MapLibre表示を確認する。
 - Webはdev serverでS04の地図操作と友達マーカーを確認する。
 
-### 3. 本番/ローカル環境の切り替え運用
+### 3. Map infraの本番配信準備
+
+現状:
+
+- 本番style/tilesは `docs/adr/0010-self-hosted-map-style-and-tiles.md` でSupabase Storage + Edge Function `map-tiles` + Protomaps PMTilesに決定済み。
+- ADR proposal 0010はCloudflare R2 + Worker案を含む設計経緯として残すが、実装判断の正は承認済みADR 0010を参照する。承認済みADR 0010ではCloudflareを採用しない。
+
+実装候補:
+
+- Supabase Storage bucket、PMTiles upload、style JSON/glyph/sprite upload、Edge Function `map-tiles` deploy、production env設定を進める。local Dockerでは最小PMTiles/style JSONを投入し、Edge Runtime経由でstyle JSON、TileJSON、ZXY MVT、allowlist外404のcurl疎通を確認済み。
+- `map-tiles` はTileJSON、ZXY MVT、style JSON、glyph、spriteをHTTPSで返し、mobileは `EXPO_PUBLIC_MAP_STYLE_URL` のstyle URLだけを見る。TileJSON内のtile URLは `MAP_TILES_PUBLIC_BASE_URL` から組み立て、Supabase Edge Runtimeの内部originをmobileへ返さない。
+- Cloudflare R2 bucket、Worker deploy、Cloudflare custom domainの手順は実施しない。
+
+### 4. 本番/ローカル環境の切り替え運用
 
 現状:
 
