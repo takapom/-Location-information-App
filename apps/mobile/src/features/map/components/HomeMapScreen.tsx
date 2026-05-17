@@ -9,10 +9,11 @@ import { useTerriRepository } from "@/lib/repositories/RepositoryProvider";
 import { useFriendLivePresence } from "@/features/friends/hooks/useFriendLivePresence";
 import { getActiveFriendPresenceCount, getVisibleFriendPresences } from "@/features/friends/presence";
 import { useLiveTerritory } from "@/features/tracking/hooks/useLiveTerritory";
-import { getTerritoryCaptureSummary } from "@/features/tracking/services/liveTerritoryState";
+import { getMapPrivacyLabel, getTerritoryCaptureSummary } from "@/features/tracking/services/liveTerritoryState";
 import { colors } from "@/theme/tokens";
 import { buildHomeMapScene } from "../services/buildHomeMapScene";
 import { CompleteSheet } from "./CompleteSheet";
+import { FriendMapCard } from "./FriendMapCard";
 import { FriendsModal } from "./FriendsModal";
 import { HistorySheet } from "./HistorySheet";
 import { styles } from "./HomeMapScreen.styles";
@@ -33,6 +34,7 @@ export function HomeMapScreen() {
   const [completeResult, setCompleteResult] = useState<FinalizedDailyActivity | undefined>();
   const [overlay, setOverlay] = useState<Overlay>("none");
   const [loadError, setLoadError] = useState<string | undefined>();
+  const [selectedFriendId, setSelectedFriendId] = useState<string | undefined>();
 
   useEffect(() => {
     let active = true;
@@ -62,6 +64,10 @@ export function HomeMapScreen() {
   const activeFriendCount = useMemo(() => getActiveFriendPresenceCount(liveFriends), [liveFriends]);
   const currentLocation = liveTerritory.state.currentLocation;
   const mapStyleConfig = useMemo(() => readMapStyleConfig(), []);
+  const privacyLabel = getMapPrivacyLabel({
+    profile,
+    status: liveTerritory.state.status
+  });
   const homeMapScene = useMemo(
     () =>
       buildHomeMapScene({
@@ -73,6 +79,7 @@ export function HomeMapScreen() {
         isLive,
         showRoute: isLive || liveTerritory.state.status === "completed",
         attribution: mapStyleConfig.attribution,
+        privacyLabel,
         livePreviewGeometry: isLive ? liveTerritory.state.livePreviewGeometry : undefined,
         ownFinalTerritoryGeometries:
           liveTerritory.state.status === "completed"
@@ -91,9 +98,11 @@ export function HomeMapScreen() {
       liveTerritory.state.trackingRoute,
       mapStyleConfig.attribution,
       profile,
+      privacyLabel,
       visibleFriends
     ]
   );
+  const selectedFriend = homeMapScene.layers.friends.find((friend) => friend.id === selectedFriendId);
   const finalizeTerritory = async () => {
     const finalized = await liveTerritory.finalize();
     if (finalized) {
@@ -105,7 +114,7 @@ export function HomeMapScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.mapLayer}>
-        <MapSurface scene={homeMapScene} />
+        <MapSurface scene={homeMapScene} onFriendMarkerPress={setSelectedFriendId} />
       </View>
       <TouchableOpacity accessibilityRole="button" style={styles.profileButton} onPress={() => router.push("/profile")} testID="profile-button">
         <Avatar initials={profile?.initials ?? "U"} color={profile?.territoryColor ?? colors.coral} size={48} active />
@@ -115,10 +124,12 @@ export function HomeMapScreen() {
       <LiveTerritoryPanel
         stats={liveTerritory.state.stats}
         status={liveTerritory.state.status}
+        routePointCount={liveTerritory.state.trackingRoute.length}
         onRequestPermission={liveTerritory.activate}
         onSync={liveTerritory.sync}
         onFinalize={() => void finalizeTerritory()}
       />
+      {selectedFriend ? <FriendMapCard friend={selectedFriend} onClose={() => setSelectedFriendId(undefined)} /> : null}
       <StartDock
         captureLabel={getTerritoryCaptureSummary(liveTerritory.state.status)}
         captureStatus={liveTerritory.state.status}
@@ -127,7 +138,7 @@ export function HomeMapScreen() {
       />
       {overlay === "history" ? <HistorySheet activities={activities} onClose={() => setOverlay("none")} /> : null}
       {overlay === "ranking" ? <RankingSheet rankings={rankings} onClose={() => setOverlay("none")} onFriends={() => setOverlay("friends")} /> : null}
-      {overlay === "friends" ? <FriendsModal friends={liveFriends} onFriendsChange={setFriends} onClose={() => setOverlay("none")} /> : null}
+      {overlay === "friends" ? <FriendsModal friends={liveFriends} currentUserFriendCode={profile?.friendCode} onFriendsChange={setFriends} onClose={() => setOverlay("none")} /> : null}
       {completeResult ? <CompleteSheet result={completeResult} onClose={() => setCompleteResult(undefined)} /> : null}
     </View>
   );

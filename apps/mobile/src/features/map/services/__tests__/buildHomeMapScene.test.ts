@@ -4,6 +4,7 @@ import { buildHomeMapScene } from "../buildHomeMapScene";
 
 const profile: UserProfile = {
   id: "me",
+  friendCode: "ME2026",
   name: "Me",
   initials: "ME",
   emojiStatus: "🚶",
@@ -115,6 +116,21 @@ describe("buildHomeMapScene", () => {
 
     expect(scene.chrome.activeFriendCount).toBe(3);
     expect(scene.chrome.attribution).toBe("© OpenStreetMap contributors");
+  });
+
+  test("privacyLabel inputがchromeへ入る", () => {
+    const scene = buildHomeMapScene({
+      profile,
+      friends: [],
+      friendTerritories: [],
+      activeFriendCount: 0,
+      isLive: false,
+      showRoute: false,
+      attribution: "© OpenStreetMap contributors",
+      privacyLabel: "領土化だけON"
+    });
+
+    expect(scene.chrome.privacyLabel).toBe("領土化だけON");
   });
 
   test("friend final territoriesがfriendFinalTerritoriesへ入る", () => {

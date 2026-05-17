@@ -4,7 +4,8 @@ import type { FinalizedDailyActivity } from "@terri/shared";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { Pill } from "@/components/ui/Pill";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
-import { shareTerritorySummary } from "@/features/activities/activityShare";
+import { buildTerritoryShareCardData, shareTerritorySummary } from "@/features/activities/activityShare";
+import { TerritoryShareCard } from "@/features/activities/components/TerritoryShareCard";
 import { colors } from "@/theme/tokens";
 import { styles } from "./HomeMapScreen.styles";
 
@@ -37,9 +38,7 @@ export function CompleteSheet({ result, onClose }: CompleteSheetProps) {
           <View key={index} style={[styles.confettiPiece, { left: `${(index * 13) % 94}%`, top: `${(index * 29) % 90}%`, backgroundColor: [colors.coral, colors.mint, colors.lavender, colors.sky, colors.yellow][index % 5] }]} />
         ))}
       </View>
-      <View style={styles.shareMap}>
-        <View style={styles.shareTerritory} />
-      </View>
+      <TerritoryShareCard data={buildTerritoryShareCardData(result.territory)} />
       <Text style={styles.completeArea}>+{result.territory.areaKm2.toFixed(2)} km²↑</Text>
       <View style={styles.completeStats}>
         <Pill>移動 {result.territory.distanceKm.toFixed(1)}km</Pill>

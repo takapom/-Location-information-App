@@ -45,7 +45,7 @@ export default function LoginScreen() {
       <SoftBackdrop />
       <View style={styles.logo}>
         <TerriLogo compact />
-        <Text style={styles.copy}>歩いた分だけ、世界が自分のものになる</Text>
+        <Text style={styles.copy}>線で囲めた場所が、自分のテリトリーになる</Text>
       </View>
       <View style={styles.buttons}>
         <TextInput

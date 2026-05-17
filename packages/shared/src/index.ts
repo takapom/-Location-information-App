@@ -166,6 +166,7 @@ export type RankingEntry = {
 
 export type UserProfile = {
   id: string;
+  friendCode: string;
   name: string;
   initials: string;
   emojiStatus: string;

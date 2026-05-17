@@ -17,14 +17,14 @@ describe("MapChrome", () => {
     let tree: renderer.ReactTestRenderer | undefined;
     act(() => {
       tree = renderer.create(
-        <MapChrome placeLabel="現在地" activeFriendCount={2} privacyLabel="FRIENDS ONLY" attribution="© OpenStreetMap contributors" />
+        <MapChrome placeLabel="現在地" activeFriendCount={2} privacyLabel="友達に共有中" attribution="© OpenStreetMap contributors" />
       );
     });
     const output = JSON.stringify(tree?.toJSON());
 
     expect(output).toContain("現在地");
     expect(output).toContain("2 人が今アクティブ 🔥");
-    expect(output).toContain("FRIENDS ONLY");
+    expect(output).toContain("友達に共有中");
     expect(output).toContain("© OpenStreetMap contributors");
   });
 
@@ -32,7 +32,7 @@ describe("MapChrome", () => {
     let tree: renderer.ReactTestRenderer | undefined;
     act(() => {
       tree = renderer.create(
-        <MapChrome placeLabel="Shibuya" activeFriendCount={0} privacyLabel="FRIENDS ONLY" attribution="© OpenStreetMap contributors" />
+        <MapChrome placeLabel="Shibuya" activeFriendCount={0} privacyLabel="領土化OFF" attribution="© OpenStreetMap contributors" />
       );
     });
 
@@ -40,4 +40,3 @@ describe("MapChrome", () => {
     expect(attribution?.props.style.bottom).toBeGreaterThanOrEqual(88);
   });
 });
-

@@ -95,7 +95,7 @@ export const MapSurface = memo(function MapSurface(props: MapSurfaceProps) {
 
       renderOwnTerritoryLayers(L, groups.ownTerritories, latest.scene.layers.ownFinalTerritories);
       renderFriendTerritoryLayers(L, groups.friendTerritories, latest.scene.layers.friendFinalTerritories);
-      renderFriendLayers(L, groups.friends, latest.scene.layers.friends);
+      renderFriendLayers(L, groups.friends, latest.scene.layers.friends, props.onFriendMarkerPress);
       renderLiveLayers(L, groups.live, latest.scene.layers.livePreview, latest.scene.layers.trackingRoute, latest.mapCenter);
       renderCurrentLocationLayer(L, groups.user, latest.scene.viewport.currentLocation, latest.scene.user.marker);
       resizeFrameId = requestAnimationFrame(() => {
@@ -144,8 +144,8 @@ export const MapSurface = memo(function MapSurface(props: MapSurfaceProps) {
 
   useEffect(() => {
     if (!leafletRef.current || !groupsRef.current) return;
-    renderFriendLayers(leafletRef.current, groupsRef.current.friends, scene.layers.friends);
-  }, [scene.layers.friends, friendsKey]);
+    renderFriendLayers(leafletRef.current, groupsRef.current.friends, scene.layers.friends, props.onFriendMarkerPress);
+  }, [scene.layers.friends, friendsKey, props.onFriendMarkerPress]);
 
   useEffect(() => {
     if (!leafletRef.current || !groupsRef.current) return;
@@ -286,20 +286,19 @@ function currentLocationMarkerHtml(currentUser: MapSelfMarker) {
   `;
 }
 
-function renderFriendLayers(L: LeafletModule, group: LeafletLayerGroup, friends: MapFriendMarker[]) {
+function renderFriendLayers(L: LeafletModule, group: LeafletLayerGroup, friends: MapFriendMarker[], onFriendMarkerPress?: (friendId: string) => void) {
   group.clearLayers();
   friends.forEach((friend) => {
-    group.addLayer(
-      L.marker([friend.latitude, friend.longitude], {
-        icon: L.divIcon({
-          html: friendMarkerHtml(friend),
-          className: "",
-          iconSize: [72, 84],
-          iconAnchor: [36, 72]
-        })
+    const marker = L.marker([friend.latitude, friend.longitude], {
+      icon: L.divIcon({
+        html: friendMarkerHtml(friend),
+        className: "",
+        iconSize: [72, 84],
+        iconAnchor: [36, 72]
       })
-        .bindPopup(`<strong>${escapeHtml(friend.displayName)}</strong><br>${escapeHtml(friend.updatedLabel)}<br>${friend.totalAreaKm2.toFixed(1)} km²`)
-    );
+    }).bindPopup(`<strong>${escapeHtml(friend.displayName)}</strong><br>${escapeHtml(friend.updatedLabel)}<br>${friend.totalAreaKm2.toFixed(1)} km²`);
+    marker.on("click", () => onFriendMarkerPress?.(friend.id));
+    group.addLayer(marker);
   });
 }
 

@@ -27,6 +27,7 @@ const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60 * 100
 
 const initialProfile: UserProfile = {
   id: "user-current",
+  friendCode: "USER2026",
   name: "ユーザー名",
   initials: "U",
   emojiStatus: "歩きまくり中",

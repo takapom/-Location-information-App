@@ -22,6 +22,12 @@ async function appendLocationPoints(repository: ReturnType<typeof createMockTerr
 }
 
 describe("mockTerriRepository", () => {
+  test("mock profileは招待URL用のfriendCodeを持つ", async () => {
+    const repository = createMockTerriRepository();
+
+    await expect(repository.getProfile()).resolves.toMatchObject({ friendCode: "USER2026" });
+  });
+
   test("Supabase差し替え前提の日次Activity契約でensureとsyncを返す", async () => {
     const repository = createMockTerriRepository();
     const dailyActivity = await repository.ensureDailyActivity({ localDate: "2026-04-26", timezone: "Asia/Tokyo" });

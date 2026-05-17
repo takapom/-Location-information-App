@@ -1,6 +1,6 @@
 import type { FriendPresence, FriendTerritory, GeoPoint, TerritoryColor, TerritoryGeometry, UserProfile } from "@terri/shared";
 import { colors } from "@/theme/tokens";
-import type { MapFriendMarker, MapScene, MapTerritoryFeature } from "@/components/map/mapTypes";
+import type { MapFriendMarker, MapPrivacyLabel, MapScene, MapTerritoryFeature } from "@/components/map/mapTypes";
 import { friendTerritoryToMapFeature } from "@/components/map/scene/mapSceneDefaults";
 import { formatPresenceUpdatedAt } from "@/features/friends/presence";
 
@@ -16,6 +16,7 @@ export type BuildHomeMapSceneInput = {
   livePreviewGeometry?: TerritoryGeometry;
   ownFinalTerritoryGeometries?: TerritoryGeometry[];
   trackingRoute?: GeoPoint[];
+  privacyLabel?: MapPrivacyLabel;
   fallbackPlaceLabel?: string;
 };
 
@@ -62,7 +63,7 @@ export function buildHomeMapScene(input: BuildHomeMapSceneInput): MapScene {
     chrome: {
       placeLabel: input.currentLocation ? "現在地" : input.fallbackPlaceLabel ?? "Shibuya",
       activeFriendCount: input.activeFriendCount,
-      privacyLabel: "FRIENDS ONLY",
+      privacyLabel: input.privacyLabel ?? "確認中",
       attribution: input.attribution
     }
   };

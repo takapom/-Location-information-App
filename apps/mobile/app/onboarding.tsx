@@ -22,8 +22,16 @@ export default function OnboardingScreen() {
           <Text style={styles.walkerText}>🚶</Text>
         </View>
       </View>
-      <Text style={styles.title}>歩いてテリトリーを{"\n"}広げよう!</Text>
-      <Text style={styles.subtitle}>歩いた分だけ、世界が自分のものになる</Text>
+      <Text style={styles.title}>ぐるっと囲んで{"\n"}テリトリーを作ろう!</Text>
+      <Text style={styles.subtitle}>線を引いて、囲めた場所が自分の色になる</Text>
+      <View style={styles.steps}>
+        {["歩くと線が伸びる", "戻って囲む", "内側がテリトリーになる"].map((step, index) => (
+          <View key={step} style={styles.stepPill}>
+            <Text style={styles.stepNumber}>{index + 1}</Text>
+            <Text style={styles.stepText}>{step}</Text>
+          </View>
+        ))}
+      </View>
       <View style={styles.dots}>
         <View style={styles.dot} />
         <View style={styles.activeDot} />
@@ -110,8 +118,39 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontWeight: font.heavy
   },
+  steps: {
+    marginTop: 20,
+    gap: 8
+  },
+  stepPill: {
+    minHeight: 38,
+    borderRadius: 19,
+    backgroundColor: colors.surface,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    ...shadow
+  },
+  stepNumber: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.mint,
+    color: colors.ink,
+    textAlign: "center",
+    lineHeight: 24,
+    fontSize: 14,
+    fontWeight: font.heavy
+  },
+  stepText: {
+    marginLeft: 10,
+    fontSize: 15,
+    lineHeight: 20,
+    color: colors.ink,
+    fontWeight: font.heavy
+  },
   dots: {
-    marginVertical: 36,
+    marginVertical: 24,
     flexDirection: "row",
     justifyContent: "center",
     gap: 12

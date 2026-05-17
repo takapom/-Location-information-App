@@ -1,5 +1,5 @@
 import * as Clipboard from "expo-clipboard";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { ScrollView, Text, TextInput, TouchableOpacity, View, type GestureResponderEvent } from "react-native";
 import type { FriendPresence } from "@terri/shared";
 import { Avatar } from "@/components/ui/Avatar";
@@ -12,19 +12,32 @@ import { styles } from "./HomeMapScreen.styles";
 
 type FriendsModalProps = {
   friends: FriendPresence[];
+  currentUserFriendCode?: string;
   onFriendsChange?: (friends: FriendPresence[]) => void;
   onClose: () => void;
 };
 
 const CLOSE_DRAG_DISTANCE = 72;
 
-export function FriendsModal({ friends, onFriendsChange, onClose }: FriendsModalProps) {
+export function buildInviteUrl(friendCode?: string) {
+  if (!friendCode) return "";
+  return `https://terri.app/invite/${encodeURIComponent(friendCode)}`;
+}
+
+export function FriendsModal({ friends, currentUserFriendCode, onFriendsChange, onClose }: FriendsModalProps) {
   const dragStartYRef = useRef<number | undefined>(undefined);
-  const inviteUrl = "https://app.link/share...xyz";
+  const inviteUrl = buildInviteUrl(currentUserFriendCode);
+  const [inviteCopyMessage, setInviteCopyMessage] = useState<string | undefined>();
   const friendSearch = useFriendSearch();
   const friendRequests = useFriendRequests();
   const copyInviteUrl = () => {
-    void Clipboard.setStringAsync(inviteUrl);
+    if (!inviteUrl) {
+      setInviteCopyMessage("招待コードを読み込めませんでした");
+      return;
+    }
+    void Clipboard.setStringAsync(inviteUrl)
+      .then(() => setInviteCopyMessage("コピーしました"))
+      .catch(() => setInviteCopyMessage("コピーできませんでした"));
   };
   const submitSearch = () => {
     void friendSearch.search();
@@ -176,11 +189,12 @@ export function FriendsModal({ friends, onFriendsChange, onClose }: FriendsModal
         ))}
         <Text style={styles.inviteTitle}>招待リンク</Text>
         <View style={styles.inviteBox}>
-          <Text style={styles.inviteUrl}>{inviteUrl}</Text>
-          <TouchableOpacity accessibilityLabel="招待リンクをコピー" accessibilityRole="button" onPress={copyInviteUrl} style={styles.copyButton} testID="invite-copy-button">
+          <Text style={styles.inviteUrl}>{inviteUrl || "プロフィール読込中"}</Text>
+          <TouchableOpacity accessibilityLabel="招待リンクをコピー" accessibilityRole="button" disabled={!inviteUrl} onPress={copyInviteUrl} style={[styles.copyButton, !inviteUrl ? styles.copyButtonDisabled : null]} testID="invite-copy-button">
             <Text style={styles.copyButtonText}>コピー</Text>
           </TouchableOpacity>
         </View>
+        {inviteCopyMessage ? <Text style={styles.friendSearchMessage} testID="invite-copy-message">{inviteCopyMessage}</Text> : null}
         <PrimaryButton onPress={submitSearch} testID="friends-add-button">友達を検索</PrimaryButton>
       </ScrollView>
     </View>

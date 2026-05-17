@@ -51,6 +51,60 @@ export const styles = StyleSheet.create({
     ...shadow,
     elevation: 13
   },
+  friendMapCard: {
+    position: "absolute",
+    left: 22,
+    right: 22,
+    top: 208,
+    minHeight: 92,
+    borderRadius: 28,
+    backgroundColor: colors.surface,
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    zIndex: 1320,
+    ...shadow,
+    elevation: 14
+  },
+  friendMapCardBody: {
+    flex: 1,
+    minWidth: 0,
+    marginLeft: 12
+  },
+  friendMapCardName: {
+    fontSize: 22,
+    lineHeight: 27,
+    fontWeight: font.heavy,
+    color: colors.ink
+  },
+  friendMapCardMeta: {
+    marginTop: 2,
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: font.heavy,
+    color: colors.coral
+  },
+  friendMapCardArea: {
+    marginTop: 2,
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: font.bold,
+    color: colors.muted
+  },
+  friendMapCardClose: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#F1F0F1",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  friendMapCardCloseText: {
+    fontSize: 24,
+    lineHeight: 28,
+    fontWeight: font.heavy,
+    color: colors.muted
+  },
   startDock: {
     position: "absolute",
     left: 24,
@@ -167,6 +221,44 @@ export const styles = StyleSheet.create({
     paddingRight: 10,
     ...shadow
   },
+  loopGuidance: {
+    marginTop: 8,
+    minHeight: 54,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    ...shadow
+  },
+  loopGuidance_neutral: {
+    borderWidth: 2,
+    borderColor: "#F4E0D2"
+  },
+  loopGuidance_active: {
+    borderWidth: 2,
+    borderColor: colors.mint
+  },
+  loopGuidance_success: {
+    borderWidth: 2,
+    borderColor: colors.coral
+  },
+  loopGuidance_warning: {
+    borderWidth: 2,
+    borderColor: colors.yellow
+  },
+  loopGuidanceTitle: {
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: font.heavy,
+    color: colors.ink
+  },
+  loopGuidanceBody: {
+    marginTop: 2,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: font.bold,
+    color: colors.muted
+  },
   stat: {
     flex: 1,
     alignItems: "center"
@@ -218,9 +310,19 @@ export const styles = StyleSheet.create({
     ...shadow
   },
   stopText: {
-    fontSize: 26,
+    fontSize: 23,
     color: colors.surface,
     fontWeight: font.heavy
+  },
+  stopSubText: {
+    marginTop: 4,
+    paddingHorizontal: 16,
+    textAlign: "center",
+    fontSize: 11,
+    lineHeight: 15,
+    color: colors.surface,
+    fontWeight: font.bold,
+    opacity: 0.88
   },
   syncButton: {
     minWidth: 54,
@@ -615,6 +717,9 @@ export const styles = StyleSheet.create({
     alignSelf: "stretch",
     alignItems: "center",
     justifyContent: "center"
+  },
+  copyButtonDisabled: {
+    opacity: 0.42
   },
   copyButtonText: {
     fontSize: 20,

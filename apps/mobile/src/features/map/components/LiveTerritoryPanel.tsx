@@ -1,7 +1,7 @@
 import { Linking, Platform, Text, TouchableOpacity, View } from "react-native";
 import type { LiveTerritoryStats } from "@terri/shared";
 import type { LiveTerritoryStatus } from "@/features/tracking/services/liveTerritoryState";
-import { canSyncLiveTerritoryStatus, getLiveTerritoryStatusLabel, shouldShowLocationPermissionPrompt } from "@/features/tracking/services/liveTerritoryState";
+import { canSyncLiveTerritoryStatus, getFinalizeButtonLabel, getLiveTerritoryStatusLabel, getLoopCaptureGuidance, shouldShowLocationPermissionPrompt } from "@/features/tracking/services/liveTerritoryState";
 import { styles } from "./HomeMapScreen.styles";
 
 type LiveTerritoryPanelProps = {
@@ -10,13 +10,19 @@ type LiveTerritoryPanelProps = {
   onRequestPermission: () => void;
   onSync: () => void;
   onFinalize: () => void;
+  routePointCount?: number;
 };
 
-export function LiveTerritoryPanel({ stats, status, onRequestPermission, onSync, onFinalize }: LiveTerritoryPanelProps) {
+export function LiveTerritoryPanel({ stats, status, onRequestPermission, onSync, onFinalize, routePointCount = 0 }: LiveTerritoryPanelProps) {
   const syncing = status === "syncing";
   const canSync = canSyncLiveTerritoryStatus(status);
   const canFinalize = status === "live" || status === "syncing";
   const showPermissionPrompt = shouldShowLocationPermissionPrompt(status);
+  const guidance = getLoopCaptureGuidance({
+    status,
+    routePointCount,
+    previewAreaKm2: stats.previewAreaKm2
+  });
   const requestPermission = () => {
     if (Platform.OS === "web") {
       onRequestPermission();
@@ -48,10 +54,15 @@ export function LiveTerritoryPanel({ stats, status, onRequestPermission, onSync,
           <Text style={styles.syncText}>{syncing ? "同期中" : "同期"}</Text>
         </TouchableOpacity>
       </View>
+      <View style={[styles.loopGuidance, styles[`loopGuidance_${guidance.tone}`]]} testID="loop-capture-guidance">
+        <Text style={styles.loopGuidanceTitle}>{guidance.title}</Text>
+        <Text style={styles.loopGuidanceBody}>{guidance.body}</Text>
+      </View>
       {canFinalize || status === "finalizing" ? (
         <View style={styles.stopRow}>
           <TouchableOpacity accessibilityRole="button" disabled={!canFinalize} onPress={onFinalize} style={[styles.stopButton, !canFinalize && { opacity: 0.72 }]} testID="finalize-territory-button">
-            <Text style={styles.stopText}>{status === "finalizing" ? "確定中" : "STOP"}</Text>
+            <Text style={styles.stopText}>{getFinalizeButtonLabel(status)}</Text>
+            <Text style={styles.stopSubText}>今日の線と囲めたテリトリーを結果カードにします</Text>
           </TouchableOpacity>
         </View>
       ) : null}

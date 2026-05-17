@@ -1,12 +1,13 @@
 import { memo } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import type { MapPrivacyLabel } from "@/components/map/scene/mapSceneTypes";
 import { colors, font, shadow } from "@/theme/tokens";
 import { MapAttribution } from "./MapAttribution";
 
 type MapChromeProps = {
   placeLabel: string;
   activeFriendCount: number;
-  privacyLabel: "FRIENDS ONLY";
+  privacyLabel: MapPrivacyLabel;
   attribution: string;
 };
 
@@ -76,4 +77,3 @@ const styles = StyleSheet.create({
     color: colors.ink
   }
 });
-

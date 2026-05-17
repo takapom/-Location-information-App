@@ -1,4 +1,5 @@
-import type { DailyActivity, FinalizedDailyActivity, GeoPoint, LiveTerritoryStats, TerritoryGeometry } from "@terri/shared";
+import type { DailyActivity, FinalizedDailyActivity, GeoPoint, LiveTerritoryStats, TerritoryGeometry, UserProfile } from "@terri/shared";
+import type { MapPrivacyLabel } from "@/components/map/scene/mapPrivacyLabel";
 import type { CurrentLocation } from "./locationReader";
 
 export type LiveTerritoryStatus =
@@ -21,6 +22,12 @@ export type LiveTerritoryState = {
   finalizedResult?: FinalizedDailyActivity;
   stats: LiveTerritoryStats;
   errorMessage?: string;
+};
+
+export type LoopCaptureGuidance = {
+  title: string;
+  body: string;
+  tone: "neutral" | "active" | "success" | "warning";
 };
 
 export type LiveTerritoryAction =
@@ -209,6 +216,93 @@ export function getTerritoryCaptureSummary(status: LiveTerritoryStatus) {
     default:
       return "領土化ON";
   }
+}
+
+export function getLoopCaptureGuidance(input: {
+  status: LiveTerritoryStatus;
+  routePointCount: number;
+  previewAreaKm2: number;
+}): LoopCaptureGuidance {
+  switch (input.status) {
+    case "checkingPermission":
+      return {
+        title: "位置情報を確認中",
+        body: "ONになると歩いた線を記録できます",
+        tone: "neutral"
+      };
+    case "permissionDenied":
+      return {
+        title: "位置情報OFF",
+        body: "許可すると線を引いてテリトリーを作れます",
+        tone: "warning"
+      };
+    case "pausedByPrivacy":
+      return {
+        title: "領土化OFF",
+        body: "ONにすると歩いた線の記録を再開します",
+        tone: "warning"
+      };
+    case "backgroundLimited":
+      return {
+        title: "バックグラウンド制限中",
+        body: "移動中も記録するには位置情報設定を確認してください",
+        tone: "warning"
+      };
+    case "error":
+      return {
+        title: "確認が必要",
+        body: "状態を更新できませんでした。もう一度試してください",
+        tone: "warning"
+      };
+    case "completed":
+      return {
+        title: "今日のテリトリーを確定",
+        body: "結果カードからシェアできます",
+        tone: "success"
+      };
+    default:
+      break;
+  }
+
+  if (input.previewAreaKm2 > 0) {
+    return {
+      title: "囲めた!",
+      body: `今日のテリトリー +${input.previewAreaKm2.toFixed(2)} km²`,
+      tone: "success"
+    };
+  }
+
+  if (input.routePointCount > 0) {
+    return {
+      title: "線は記録中",
+      body: "戻って囲むと内側がテリトリーになります",
+      tone: "active"
+    };
+  }
+
+  return {
+    title: "歩き始めると線が残る",
+    body: "ぐるっと囲めた場所が自分の色になります",
+    tone: "neutral"
+  };
+}
+
+export function getFinalizeButtonLabel(status: LiveTerritoryStatus) {
+  if (status === "finalizing") return "確定中";
+  if (status === "syncing") return "保存して結果を見る";
+  return "今日を確定";
+}
+
+export function getMapPrivacyLabel(input: {
+  profile?: Pick<UserProfile, "locationSharingEnabled" | "territoryCaptureEnabled">;
+  status: LiveTerritoryStatus;
+}): MapPrivacyLabel {
+  if (input.status === "checkingPermission") return "確認中";
+  if (input.status === "permissionDenied" || input.status === "backgroundLimited") return "位置情報OFF";
+  if (!input.profile) return "確認中";
+  if (!input.profile.territoryCaptureEnabled) return "領土化OFF";
+  if (!input.profile.locationSharingEnabled) return "領土化だけON";
+  return "友達に共有中";
 }
 
 export function shouldShowLocationPermissionPrompt(status: LiveTerritoryStatus) {

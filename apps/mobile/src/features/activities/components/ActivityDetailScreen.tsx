@@ -8,7 +8,8 @@ import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { useTerriRepository } from "@/lib/repositories/RepositoryProvider";
 import { colors, font, shadow } from "@/theme/tokens";
 import { formatAverageSpeed } from "../activityMetrics";
-import { shareTerritorySummary } from "../activityShare";
+import { buildTerritoryShareCardData, shareTerritorySummary } from "../activityShare";
+import { TerritoryShareCard } from "./TerritoryShareCard";
 
 export function ActivityDetailScreen() {
   const repository = useTerriRepository();
@@ -72,6 +73,7 @@ export function ActivityDetailScreen() {
         ) : (
           <>
             <Text style={styles.date}>{activity?.createdAtLabel ?? "読み込み中"}</Text>
+            {activity ? <TerritoryShareCard data={buildTerritoryShareCardData(activity)} /> : null}
             <View style={styles.grid}>
               <Metric icon="🏃" value={`${(activity?.distanceKm ?? 0).toFixed(1)} km`} />
               <Metric icon="◷" value={activity?.duration ?? "--:--"} />
@@ -134,7 +136,7 @@ const styles = StyleSheet.create({
     letterSpacing: 4
   },
   grid: {
-    marginTop: 26,
+    marginTop: 18,
     marginBottom: 28,
     flexDirection: "row",
     flexWrap: "wrap",

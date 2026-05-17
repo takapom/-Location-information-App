@@ -43,7 +43,7 @@ export function buildMapSceneFromLegacyProps(input: {
     chrome: {
       placeLabel: input.currentLocation ? "現在地" : "Shibuya",
       activeFriendCount: input.activeFriendCount ?? 0,
-      privacyLabel: "FRIENDS ONLY",
+      privacyLabel: "確認中",
       attribution: input.attribution ?? DEFAULT_ATTRIBUTION
     }
   };

@@ -1,7 +1,7 @@
 import type { FriendTerritory, GeoPoint } from "@terri/shared";
 import type { MapFriendMarker, MapScene, MapSelfMarker } from "./scene/mapSceneTypes";
 
-export type { MapFriendMarker, MapRouteFeature, MapScene, MapSelfMarker, MapTerritoryFeature } from "./scene/mapSceneTypes";
+export type { MapFriendMarker, MapPrivacyLabel, MapRouteFeature, MapScene, MapSelfMarker, MapTerritoryFeature } from "./scene/mapSceneTypes";
 
 export type MapSurfaceProps = {
   scene?: MapScene;
@@ -13,4 +13,5 @@ export type MapSurfaceProps = {
   activeFriendCount?: number;
   live?: boolean;
   showRoute?: boolean;
+  onFriendMarkerPress?: (friendId: string) => void;
 };

@@ -26,6 +26,7 @@ import { getSupabaseClient } from "./supabaseClient";
 
 type ProfileRow = {
   id: string;
+  friend_code: string;
   display_name: string;
   avatar_url: string | null;
   territory_color: string;
@@ -204,9 +205,10 @@ export function mapActivitySummary(row: DailyActivityRow, color: TerritoryColor,
   };
 }
 
-function mapProfileRow(row: ProfileRow, totals: { areaKm2: number; distanceKm: number }): UserProfile {
+export function mapProfileRow(row: ProfileRow, totals: { areaKm2: number; distanceKm: number }): UserProfile {
   return {
     id: row.id,
+    friendCode: row.friend_code,
     name: row.display_name,
     initials: initialsFromName(row.display_name),
     emojiStatus: row.emoji_status ?? "歩きまくり中",

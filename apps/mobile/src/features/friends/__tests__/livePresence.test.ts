@@ -11,6 +11,7 @@ import { colors } from "@/theme/tokens";
 
 const profile: UserProfile = {
   id: "user-current",
+  friendCode: "USER2026",
   name: "ユーザー",
   initials: "U",
   emojiStatus: "移動中",

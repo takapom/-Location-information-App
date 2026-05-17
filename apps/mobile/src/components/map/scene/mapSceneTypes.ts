@@ -1,6 +1,9 @@
 import type { GeoPoint, TerritoryColor, TerritoryGeometry } from "@terri/shared";
+import type { MapPrivacyLabel } from "./mapPrivacyLabel";
 
 export type MapViewportFollowMode = "autoUntilUserMoves" | "manual";
+
+export type { MapPrivacyLabel } from "./mapPrivacyLabel";
 
 export type MapFriendMarker = {
   id: string;
@@ -53,8 +56,7 @@ export type MapScene = {
   chrome: {
     placeLabel: string;
     activeFriendCount: number;
-    privacyLabel: "FRIENDS ONLY";
+    privacyLabel: MapPrivacyLabel;
     attribution: string;
   };
 };
-

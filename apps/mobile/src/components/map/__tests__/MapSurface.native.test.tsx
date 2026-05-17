@@ -114,7 +114,7 @@ describe("MapSurface.native", () => {
             chrome: {
               placeLabel: "現在地",
               activeFriendCount: 1,
-              privacyLabel: "FRIENDS ONLY",
+              privacyLabel: "友達に共有中",
               attribution: "© OpenStreetMap contributors"
             }
           }}
@@ -152,7 +152,7 @@ describe("MapSurface.native", () => {
             chrome: {
               placeLabel: "現在地",
               activeFriendCount: 0,
-              privacyLabel: "FRIENDS ONLY",
+              privacyLabel: "確認中",
               attribution: "© OpenStreetMap contributors"
             }
           }}
@@ -172,7 +172,7 @@ describe("MapSurface.native", () => {
 
     expect(output).toContain("現在地");
     expect(output).toContain("2 人が今アクティブ 🔥");
-    expect(output).toContain("FRIENDS ONLY");
+    expect(output).toContain("確認中");
     expect(output).toContain("© OpenStreetMap contributors");
   });
 
@@ -193,6 +193,58 @@ describe("MapSurface.native", () => {
       }),
       450
     );
+  });
+
+  test("friend marker pressでonFriendMarkerPressを呼ぶ", () => {
+    const onFriendMarkerPress = jest.fn();
+    let tree: renderer.ReactTestRenderer | undefined;
+    act(() => {
+      tree = renderer.create(
+        <MapSurface
+          onFriendMarkerPress={onFriendMarkerPress}
+          scene={{
+            viewport: {
+              center: { latitude: 35.66, longitude: 139.7 },
+              currentLocation: { latitude: 35.66, longitude: 139.7 },
+              followMode: "autoUntilUserMoves"
+            },
+            user: { marker: { initials: "ME", color: colors.coral } },
+            layers: {
+              ownFinalTerritories: [],
+              friendFinalTerritories: [],
+              livePreview: undefined,
+              trackingRoute: undefined,
+              friends: [
+                {
+                  id: "sakura",
+                  displayName: "Sakura",
+                  initials: "S",
+                  color: colors.mint,
+                  totalAreaKm2: 1.2,
+                  isActive: true,
+                  updatedLabel: "いま",
+                  latitude: 35.6605,
+                  longitude: 139.7005
+                }
+              ]
+            },
+            chrome: {
+              placeLabel: "現在地",
+              activeFriendCount: 1,
+              privacyLabel: "友達に共有中",
+              attribution: "© OpenStreetMap contributors"
+            }
+          }}
+        />
+      );
+    });
+
+    const friendMarker = tree?.root.findAll((node) => String(node.type) === "Marker" && node.props.identifier === "friend-sakura")[0];
+    act(() => {
+      friendMarker?.props.onPress();
+    });
+
+    expect(onFriendMarkerPress).toHaveBeenCalledWith("sakura");
   });
 
   test("live preview polygonは将来MapLibreへ戻しても不正geometryにならないよう閉じる", () => {

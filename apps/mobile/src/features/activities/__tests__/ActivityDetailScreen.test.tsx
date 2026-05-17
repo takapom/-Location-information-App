@@ -79,8 +79,9 @@ describe("ActivityDetailScreen", () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     expect(Share.share).toHaveBeenCalledWith({
-      message: "TERRIで今日のテリトリーを広げました: 5.2km / 2.30km2"
+      message: "TERRIで今日のテリトリーを確定: 5.2km / 2.30km²\n囲んだ場所が自分の色になった"
     });
+    expect(JSON.stringify(tree?.toJSON())).toContain("territory-share-card");
 
     await act(async () => {
       tree?.root.findByProps({ testID: "activity-share-button" }).props.onPress();

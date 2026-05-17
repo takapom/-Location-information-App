@@ -25,7 +25,7 @@ export default function SplashScreen() {
     <View style={styles.screen}>
       <SoftBackdrop />
       <TerriLogo />
-      <Text style={styles.copy}>歩いた分だけ、世界が自分のものになる</Text>
+      <Text style={styles.copy}>線で囲めた場所が、自分のテリトリーになる</Text>
       <View style={styles.progress}>
         <View style={styles.bar} />
       </View>

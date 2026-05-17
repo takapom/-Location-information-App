@@ -124,7 +124,13 @@ export const MapSurface = memo(function MapSurface(props: MapSurfaceProps) {
         {trackingRoute.length > 0 ? <Polyline coordinates={trackingRoute} strokeColor={`${colors.coral}CC`} strokeWidth={6} lineCap="round" lineJoin="round" /> : null}
         {scene.viewport.currentLocation && scene.user.marker ? <SelfMarker coordinate={scene.viewport.currentLocation} marker={scene.user.marker} /> : null}
         {scene.layers.friends.map((friend) => (
-          <Marker key={friend.id} identifier={`friend-${friend.id}`} coordinate={{ latitude: friend.latitude, longitude: friend.longitude }} anchor={{ x: 0.5, y: 0.5 }}>
+          <Marker
+            key={friend.id}
+            identifier={`friend-${friend.id}`}
+            coordinate={{ latitude: friend.latitude, longitude: friend.longitude }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            onPress={() => props.onFriendMarkerPress?.(friend.id)}
+          >
             <View style={styles.friendMarker} testID={`friend-marker-${friend.id}`}>
               <View style={[styles.friendHalo, { borderColor: friend.color }]} />
               <Avatar initials={friend.initials} color={friend.color} size={friend.id === "taro" ? 74 : 58} active={friend.isActive} />

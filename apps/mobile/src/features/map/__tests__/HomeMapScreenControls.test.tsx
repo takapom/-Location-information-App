@@ -3,6 +3,44 @@ import { HomeMapScreen } from "@/features/map/components/HomeMapScreen";
 
 const mockPush = jest.fn();
 const mockFinalize = jest.fn();
+const mockFriend = {
+  id: "sakura",
+  displayName: "Sakura",
+  initials: "S",
+  color: "#6DCFB0" as const,
+  totalAreaKm2: 1.5,
+  isActive: true,
+  updatedAt: new Date().toISOString(),
+  locationSharingEnabled: true,
+  position: { latitude: 35.66, longitude: 139.7 }
+};
+const mockProfile = {
+  id: "user-current",
+  friendCode: "USER2026",
+  name: "ユーザー",
+  initials: "U",
+  emojiStatus: "移動中",
+  territoryColor: "#F07060" as const,
+  totalAreaKm2: 1,
+  totalDistanceKm: 2,
+  notificationsEnabled: true,
+  backgroundTrackingEnabled: true,
+  locationSharingEnabled: true,
+  territoryCaptureEnabled: true
+};
+let mockRepositoryState = {
+  profile: mockProfile,
+  friends: [mockFriend]
+};
+const mockRepository = {
+  getProfile: () => Promise.resolve(mockRepositoryState.profile),
+  getFriends: () => Promise.resolve(mockRepositoryState.friends),
+  getIncomingFriendRequests: () => Promise.resolve([]),
+  getOutgoingFriendRequests: () => Promise.resolve([]),
+  getActivities: () => Promise.resolve([]),
+  getRankings: () => Promise.resolve([]),
+  getFriendTerritories: () => Promise.resolve([])
+};
 const mockLivePreviewGeometry = {
   type: "Polygon" as const,
   coordinates: [
@@ -94,15 +132,7 @@ jest.mock("@/features/friends/hooks/useFriendRequests", () => ({
 }));
 
 jest.mock("@/lib/repositories/RepositoryProvider", () => ({
-  useTerriRepository: () => ({
-    getProfile: () => new Promise(() => undefined),
-    getFriends: () => new Promise(() => undefined),
-    getIncomingFriendRequests: () => Promise.resolve([]),
-    getOutgoingFriendRequests: () => Promise.resolve([]),
-    getActivities: () => new Promise(() => undefined),
-    getRankings: () => new Promise(() => undefined),
-    getFriendTerritories: () => new Promise(() => undefined)
-  })
+  useTerriRepository: () => mockRepository
 }));
 
 describe("HomeMapScreen controls", () => {
@@ -115,12 +145,17 @@ describe("HomeMapScreen controls", () => {
       trackingRoute: [],
       currentLocation: { latitude: 35.66, longitude: 139.7, accuracyM: 12, recordedAt: "2026-04-28T00:00:00.000Z" }
     };
+    mockRepositoryState = {
+      profile: mockProfile,
+      friends: [mockFriend]
+    };
   });
 
-  test("地図画面の主要ボタン導線が押下できる", () => {
+  test("地図画面の主要ボタン導線が押下できる", async () => {
     let tree: renderer.ReactTestRenderer | undefined;
-    act(() => {
+    await act(async () => {
       tree = renderer.create(<HomeMapScreen />);
+      await new Promise((resolve) => setTimeout(resolve, 0));
     });
 
     act(() => {
@@ -140,6 +175,25 @@ describe("HomeMapScreen controls", () => {
       tree?.root.findByProps({ testID: "ranking-friends-button" }).props.onPress();
     });
     expect(tree?.root.findByProps({ testID: "friends-close-button" })).toBeTruthy();
+  });
+
+  test("友達マーカー押下でFriendMapCardが表示され、閉じられる", async () => {
+    let tree: renderer.ReactTestRenderer | undefined;
+    await act(async () => {
+      tree = renderer.create(<HomeMapScreen />);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    act(() => {
+      tree?.root.findByProps({ testID: "map-surface" }).props.onFriendMarkerPress("sakura");
+    });
+    expect(tree?.root.findByProps({ testID: "friend-map-card" })).toBeTruthy();
+    expect(JSON.stringify(tree?.toJSON())).toContain("Sakura");
+
+    act(() => {
+      tree?.root.findByProps({ testID: "friend-map-card-close-button" }).props.onPress();
+    });
+    expect(tree?.root.findAllByProps({ testID: "friend-map-card" })).toHaveLength(0);
   });
 
   test("完了状態の地図はlive previewを確定陣地のfallbackにしない", () => {

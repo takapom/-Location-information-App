@@ -1,6 +1,9 @@
 import {
+  getFinalizeButtonLabel,
+  getLoopCaptureGuidance,
   getLocationSendIntervalSeconds,
   getLocalDateForTimezone,
+  getMapPrivacyLabel,
   getTerritoryCaptureSummary,
   initialLiveTerritoryState,
   liveTerritoryReducer,
@@ -182,6 +185,55 @@ describe("territory capture labels", () => {
     expect(getTerritoryCaptureSummary("permissionDenied")).toBe("位置情報OFF");
     expect(shouldShowLocationPermissionPrompt("permissionDenied")).toBe(true);
     expect(shouldShowLocationPermissionPrompt("live")).toBe(false);
+  });
+
+  test("確定ボタンはSTOPではなく常時LIVEモデルの文言になる", () => {
+    expect(getFinalizeButtonLabel("live")).toBe("今日を確定");
+    expect(getFinalizeButtonLabel("syncing")).toBe("保存して結果を見る");
+    expect(getFinalizeButtonLabel("finalizing")).toBe("確定中");
+  });
+
+  test("ループ陣地化のガイダンスを軌跡と面積の状態で出し分ける", () => {
+    expect(getLoopCaptureGuidance({ status: "live", routePointCount: 0, previewAreaKm2: 0 })).toMatchObject({
+      title: "歩き始めると線が残る",
+      tone: "neutral"
+    });
+    expect(getLoopCaptureGuidance({ status: "live", routePointCount: 3, previewAreaKm2: 0 })).toMatchObject({
+      title: "線は記録中",
+      tone: "active"
+    });
+    expect(getLoopCaptureGuidance({ status: "live", routePointCount: 8, previewAreaKm2: 0.12 })).toMatchObject({
+      title: "囲めた!",
+      body: "今日のテリトリー +0.12 km²",
+      tone: "success"
+    });
+  });
+
+  test("権限やプライバシー停止時は位置情報/領土化の説明を優先する", () => {
+    expect(getLoopCaptureGuidance({ status: "permissionDenied", routePointCount: 0, previewAreaKm2: 0 })).toMatchObject({
+      title: "位置情報OFF",
+      tone: "warning"
+    });
+    expect(getLoopCaptureGuidance({ status: "pausedByPrivacy", routePointCount: 3, previewAreaKm2: 0 })).toMatchObject({
+      title: "領土化OFF",
+      tone: "warning"
+    });
+    expect(getLoopCaptureGuidance({ status: "error", routePointCount: 3, previewAreaKm2: 0 })).toMatchObject({
+      title: "確認が必要",
+      tone: "warning"
+    });
+  });
+
+  test("マップ上のプライバシー表示をprofileとlive statusから作る", () => {
+    const profile = { locationSharingEnabled: true, territoryCaptureEnabled: true };
+
+    expect(getMapPrivacyLabel({ profile, status: "checkingPermission" })).toBe("確認中");
+    expect(getMapPrivacyLabel({ profile, status: "permissionDenied" })).toBe("位置情報OFF");
+    expect(getMapPrivacyLabel({ profile, status: "backgroundLimited" })).toBe("位置情報OFF");
+    expect(getMapPrivacyLabel({ profile: undefined, status: "live" })).toBe("確認中");
+    expect(getMapPrivacyLabel({ profile: { ...profile, territoryCaptureEnabled: false }, status: "live" })).toBe("領土化OFF");
+    expect(getMapPrivacyLabel({ profile: { ...profile, locationSharingEnabled: false }, status: "live" })).toBe("領土化だけON");
+    expect(getMapPrivacyLabel({ profile, status: "live" })).toBe("友達に共有中");
   });
 });
 

@@ -6,6 +6,7 @@ import {
   mapFriendTerritoryRow,
   mapFriendSearchRow,
   mapIncomingFriendRequestRow,
+  mapProfileRow,
   mapRankingRow
 } from "@/lib/supabase/supabaseTerriRepository";
 
@@ -25,6 +26,31 @@ const dailyRow = {
 };
 
 describe("supabaseTerriRepository mappers", () => {
+  test("profiles rowのfriend_codeをUserProfile.friendCodeへ変換する", () => {
+    expect(
+      mapProfileRow(
+        {
+          id: "user-current",
+          friend_code: "USER2026",
+          display_name: "ユーザー",
+          avatar_url: null,
+          territory_color: colors.coral,
+          emoji_status: "移動中",
+          location_sharing_enabled: true,
+          territory_capture_enabled: true,
+          background_tracking_enabled: true,
+          notifications_enabled: true
+        },
+        { areaKm2: 1.2, distanceKm: 3.4 }
+      )
+    ).toMatchObject({
+      id: "user-current",
+      friendCode: "USER2026",
+      totalAreaKm2: 1.2,
+      totalDistanceKm: 3.4
+    });
+  });
+
   test("daily_activities rowをアプリ内DailyActivity契約へ変換する", () => {
     expect(mapDailyActivityRow(dailyRow)).toMatchObject({
       id: "activity-1",

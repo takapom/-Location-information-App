@@ -1,7 +1,7 @@
 import renderer, { act } from "react-test-renderer";
 import { colors } from "@/theme/tokens";
 import { CompleteSheet } from "@/features/map/components/CompleteSheet";
-import { FriendsModal } from "@/features/map/components/FriendsModal";
+import { buildInviteUrl, FriendsModal } from "@/features/map/components/FriendsModal";
 import { HistorySheet } from "@/features/map/components/HistorySheet";
 import { LiveTerritoryPanel } from "@/features/map/components/LiveTerritoryPanel";
 import { getWeeklyDeltaLabel, getWeeklyDeltaTone, RankingSheet } from "@/features/map/components/RankingSheet";
@@ -147,18 +147,35 @@ describe("map controls", () => {
     expect(onSync).toHaveBeenCalledTimes(1);
   });
 
-  test("領土化中はSTOPで確定処理を呼べる", () => {
+  test("領土化中は今日を確定ボタンで確定処理を呼べる", () => {
     const onFinalize = jest.fn();
     let tree: renderer.ReactTestRenderer | undefined;
     act(() => {
-      tree = renderer.create(<LiveTerritoryPanel stats={{ elapsed: "進行中", distanceKm: 0.3, previewAreaKm2: 0.01 }} status="live" onRequestPermission={jest.fn()} onSync={jest.fn()} onFinalize={onFinalize} />);
+      tree = renderer.create(<LiveTerritoryPanel stats={{ elapsed: "進行中", distanceKm: 0.3, previewAreaKm2: 0 }} status="live" routePointCount={4} onRequestPermission={jest.fn()} onSync={jest.fn()} onFinalize={onFinalize} />);
     });
+
+    const output = JSON.stringify(tree?.toJSON());
+    expect(output).toContain("今日を確定");
+    expect(output).toContain("線は記録中");
+    expect(output).toContain("囲むと");
+    expect(output).not.toContain("STOP");
 
     act(() => {
       tree?.root.findByProps({ testID: "finalize-territory-button" }).props.onPress();
     });
 
     expect(onFinalize).toHaveBeenCalledTimes(1);
+  });
+
+  test("囲めた状態ではLiveTerritoryPanelに成功ガイダンスが出る", () => {
+    let tree: renderer.ReactTestRenderer | undefined;
+    act(() => {
+      tree = renderer.create(<LiveTerritoryPanel stats={{ elapsed: "進行中", distanceKm: 1.2, previewAreaKm2: 0.12 }} status="live" routePointCount={10} onRequestPermission={jest.fn()} onSync={jest.fn()} onFinalize={jest.fn()} />);
+    });
+
+    const output = JSON.stringify(tree?.toJSON());
+    expect(output).toContain("囲めた!");
+    expect(output).toContain("+0.12 km²");
   });
 
   test("履歴シートの閉じる・活動カードが押下できる", () => {
@@ -237,8 +254,9 @@ describe("map controls", () => {
       tree?.root.findByProps({ testID: "complete-share-button" }).props.onPress();
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
+    expect(JSON.stringify(tree?.toJSON())).toContain("territory-share-card");
     expect(Share.share).toHaveBeenCalledWith({
-      message: "TERRIで今日のテリトリーを広げました: 3.4km / 1.20km2"
+      message: "TERRIで今日のテリトリーを確定: 3.4km / 1.20km²\n囲んだ場所が自分の色になった"
     });
 
     act(() => {
@@ -290,7 +308,7 @@ describe("map controls", () => {
     const onClose = jest.fn();
     let tree: renderer.ReactTestRenderer | undefined;
     await act(async () => {
-      tree = renderer.create(<FriendsModal friends={[friend]} onClose={onClose} />);
+      tree = renderer.create(<FriendsModal friends={[friend]} currentUserFriendCode="USER2026" onClose={onClose} />);
       await new Promise((resolve) => setTimeout(resolve, 100));
     });
 
@@ -301,8 +319,25 @@ describe("map controls", () => {
     });
 
     expect(onClose).toHaveBeenCalledTimes(1);
-    expect(mockSetStringAsync).toHaveBeenCalledWith("https://app.link/share...xyz");
+    expect(mockSetStringAsync).toHaveBeenCalledWith("https://terri.app/invite/USER2026");
     expect(tree?.root.findByProps({ testID: "friends-scroll-view" })).toBeTruthy();
+  });
+
+  test("招待URLはfriendCodeから作り、未取得時はコピーできない", async () => {
+    expect(buildInviteUrl("USER 2026")).toBe("https://terri.app/invite/USER%202026");
+    const onClose = jest.fn();
+    let tree: renderer.ReactTestRenderer | undefined;
+    await act(async () => {
+      tree = renderer.create(<FriendsModal friends={[friend]} onClose={onClose} />);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+
+    expect(tree?.root.findByProps({ testID: "invite-copy-button" }).props.disabled).toBe(true);
+    act(() => {
+      tree?.root.findByProps({ testID: "invite-copy-button" }).props.onPress();
+    });
+
+    expect(mockSetStringAsync).not.toHaveBeenCalled();
   });
 
   test("友達モーダルは下に下げて閉じられ、友達一覧を全件表示する", async () => {
